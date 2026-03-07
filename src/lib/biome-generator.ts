@@ -4,7 +4,7 @@
  */
 
 import { SeededNoise, hashSeed } from "./noise";
-import { Biome } from "./biome-colors";
+import { Biome, BIOME_INDEX, BIOME_VALUES } from "./biome-colors";
 import type { Edition } from "./minecraft-versions";
 
 interface NoiseConfig {
@@ -31,6 +31,17 @@ const BEDROCK_NOISE: NoiseConfig = {
   weirdScale: 0.005,
 };
 
+const BIOME_TILE_SIZE = 32;
+const MAX_TILE_CACHE_SIZE = 384;
+
+function floorDiv(value: number, divisor: number): number {
+  return Math.floor(value / divisor);
+}
+
+function positiveMod(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
+}
+
 export class BiomeGenerator {
   private tempNoise: SeededNoise;
   private humidNoise: SeededNoise;
@@ -38,6 +49,7 @@ export class BiomeGenerator {
   private erosionNoise: SeededNoise;
   private weirdNoise: SeededNoise;
   private config: NoiseConfig;
+  private tileCache = new Map<string, Uint8Array>();
 
   constructor(seed: string, edition: Edition) {
     const s = typeof seed === "string" ? hashSeed(seed) : Number(seed);
@@ -51,6 +63,10 @@ export class BiomeGenerator {
 
   /** Get biome at world coordinate (blockX, blockZ) */
   getBiomeAt(x: number, z: number): Biome {
+    return BIOME_VALUES[this.getBiomeIndexAt(x, z)];
+  }
+
+  getBiomeIndexAt(x: number, z: number): number {
     const cfg = this.config;
 
     const temp = this.tempNoise.fractal(x * cfg.tempScale, z * cfg.tempScale, 5);
@@ -59,12 +75,24 @@ export class BiomeGenerator {
     const erosion = this.erosionNoise.fractal(x * cfg.erosionScale, z * cfg.erosionScale, 4);
     const weird = this.weirdNoise.fractal(x * cfg.weirdScale, z * cfg.weirdScale, 3);
 
-    return this.classify(temp, humid, cont, erosion, weird);
+    return BIOME_INDEX[this.classify(temp, humid, cont, erosion, weird)];
   }
 
-  /** 
-   * Generate biomes for a rectangular area.
-   * Returns a flat Uint8Array of [r,g,b,r,g,b,...] for each pixel.
+  getBiomeIndexFromTile(worldX: number, worldZ: number, scale: number): number {
+    const sampleScale = Math.max(1, scale);
+    const sampleX = floorDiv(worldX, sampleScale);
+    const sampleZ = floorDiv(worldZ, sampleScale);
+    const tileX = floorDiv(sampleX, BIOME_TILE_SIZE);
+    const tileZ = floorDiv(sampleZ, BIOME_TILE_SIZE);
+    const tile = this.getTile(tileX, tileZ, sampleScale);
+    const localX = positiveMod(sampleX, BIOME_TILE_SIZE);
+    const localZ = positiveMod(sampleZ, BIOME_TILE_SIZE);
+
+    return tile[localZ * BIOME_TILE_SIZE + localX];
+  }
+
+  /**
+   * Generate biomes for a rectangular area using the shared tile cache.
    */
   generateArea(
     startX: number,
@@ -80,12 +108,44 @@ export class BiomeGenerator {
       for (let dx = 0; dx < width; dx++) {
         const worldX = startX + dx * scale;
         const worldZ = startZ + dz * scale;
-        row.push(this.getBiomeAt(worldX, worldZ));
+        row.push(BIOME_VALUES[this.getBiomeIndexFromTile(worldX, worldZ, scale)]);
       }
       biomes.push(row);
     }
 
     return { biomes };
+  }
+
+  private getTile(tileX: number, tileZ: number, scale: number): Uint8Array {
+    const key = `${scale}:${tileX}:${tileZ}`;
+    const cachedTile = this.tileCache.get(key);
+    if (cachedTile) {
+      this.tileCache.delete(key);
+      this.tileCache.set(key, cachedTile);
+      return cachedTile;
+    }
+
+    const tile = new Uint8Array(BIOME_TILE_SIZE * BIOME_TILE_SIZE);
+    const startSampleX = tileX * BIOME_TILE_SIZE;
+    const startSampleZ = tileZ * BIOME_TILE_SIZE;
+
+    for (let z = 0; z < BIOME_TILE_SIZE; z++) {
+      for (let x = 0; x < BIOME_TILE_SIZE; x++) {
+        const worldX = (startSampleX + x) * scale;
+        const worldZ = (startSampleZ + z) * scale;
+        tile[z * BIOME_TILE_SIZE + x] = this.getBiomeIndexAt(worldX, worldZ);
+      }
+    }
+
+    this.tileCache.set(key, tile);
+    if (this.tileCache.size > MAX_TILE_CACHE_SIZE) {
+      const firstKey = this.tileCache.keys().next().value;
+      if (firstKey) {
+        this.tileCache.delete(firstKey);
+      }
+    }
+
+    return tile;
   }
 
   private classify(

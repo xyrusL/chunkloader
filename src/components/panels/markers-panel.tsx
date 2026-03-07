@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { STRUCTURE_TYPES } from "@/lib/biome-data";
+import { CheckSquareIcon, SquareIcon, StructureIcon, WarningIcon } from "@/components/ui/icons";
 
 export default function MarkersPanel() {
   const [spawnPoint, setSpawnPoint] = useState(true);
@@ -58,14 +59,16 @@ export default function MarkersPanel() {
                 className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
                            text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
               >
-                ☑️ Select all
+                <CheckSquareIcon className="h-3.5 w-3.5" />
+                <span>Select all</span>
               </button>
               <button
                 onClick={clearAll}
                 className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
                            text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
               >
-                ☐ Clear
+                <SquareIcon className="h-3.5 w-3.5" />
+                <span>Clear</span>
               </button>
             </div>
 
@@ -83,7 +86,9 @@ export default function MarkersPanel() {
                         : "bg-white/[0.02] border-white/5 text-gray-400 hover:bg-white/5 hover:text-gray-200"
                     }`}
                   >
-                    <span>{structure.icon}</span>
+                    <span className="flex h-4 w-4 items-center justify-center">
+                      <StructureIcon name={structure.icon} className="h-4 w-4" />
+                    </span>
                     <span className="truncate">{structure.name}</span>
                   </button>
                 );
@@ -92,7 +97,9 @@ export default function MarkersPanel() {
 
             {/* Zoom warning */}
             <div className="mt-4 flex items-center gap-2 text-xs text-gray-500 bg-white/[0.02] p-3 rounded-lg border border-white/5">
-              <span>⚠️</span>
+              <span className="text-amber-400">
+                <WarningIcon className="h-4 w-4" />
+              </span>
               <span>Zoom in more to see all selected structures!</span>
             </div>
           </>

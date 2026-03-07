@@ -10,6 +10,7 @@ Generate and explore Minecraft biome maps from any seed, right in your browser.
 - ☕ **Java & Bedrock** — Toggle between Java and Bedrock editions
 - 📋 **Version support** — Java 1.12–1.21, Bedrock 1.18–1.21
 - 🗺️ **Interactive map** — Pan (drag) and zoom (scroll) to explore
+- ⚡ **Progressive renderer** — Cached biome tiles and chunked redraws keep navigation responsive
 - 🎨 **50+ biomes** — Accurate Minecraft biome colors (Plains, Ocean, Desert, Jungle, Taiga, and many more)
 - 📍 **Biome info on hover** — Shows biome name and world coordinates (x, z)
 - 🎲 **Random seed** — One-click random seed generation
@@ -95,6 +96,29 @@ ChunkLoader uses a **seeded Perlin noise** approach to generate biome maps:
 4. Biomes are rendered on an HTML Canvas with their corresponding colors
 
 > **Note**: This generates *procedural biome maps* that look like Minecraft maps but are not 1:1 identical to Minecraft's actual world generation. For exact seed accuracy, a WASM-compiled cubiomes library would be needed.
+
+## Performance Notes
+
+The renderer is optimized around a few low-cost primitives:
+
+- **Sample tile caching** — biome samples are cached in reusable 32×32 tiles keyed by scale and world position
+- **Progressive redraws** — large renders are split across animation frames instead of blocking the main thread
+- **Interaction quality scaling** — drag/zoom uses a lighter sampling profile first, then refines after input settles
+- **Compact palette writes** — the canvas path writes indexed biome colors into a small offscreen buffer and scales it up without smoothing
+
+This keeps map regeneration smoother on lower-end devices and mobile browsers, where long main-thread tasks are the main source of visible lag.
+
+## Open-Source References
+
+Useful repositories if you want to keep pushing this engine further:
+
+- **cubiomes** — exact Java biome/structure generation in C, MIT licensed. Best candidate for a future WASM path when you want correctness and speed over the current approximation. [GitHub](https://github.com/Cubitect/cubiomes)
+- **cubiomes-viewer** — mature GPL-3.0 Minecraft map viewer and seed finder. Good reference for viewport management, analysis tools, and feature scope. [GitHub](https://github.com/Cubitect/cubiomes-viewer)
+- **Comlink** — Apache-2.0 helper for moving heavy generation into a Web Worker without hand-writing a lot of `postMessage` plumbing. [GitHub](https://github.com/GoogleChromeLabs/comlink)
+- **FastNoise Lite** — MIT licensed high-performance noise library with a JavaScript port. Useful if you want to benchmark a faster noise backend than the current custom implementation. [GitHub](https://github.com/Auburn/FastNoiseLite)
+- **MapLibre GL JS** — BSD-3-Clause map renderer with strong tiling and viewport ideas worth studying if this project grows into a larger world explorer. [GitHub](https://github.com/maplibre/maplibre-gl-js)
+
+If you vendor code from any of these, keep the original license text and attribution with the imported files.
 
 ## Roadmap
 

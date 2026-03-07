@@ -1,6 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import type { ReactNode } from "react";
+import {
+  GridIcon,
+  HashIcon,
+  MessageIcon,
+  MountainIcon,
+  RulerIcon,
+  SearchIcon,
+  WavesIcon,
+} from "@/components/ui/icons";
 
 export interface MapSettingsState {
   terrainEstimation: boolean;
@@ -45,20 +54,20 @@ export default function MapSettingsPanel({ settings, onSettingsChange }: MapSett
           <div className="space-y-3">
             <ToggleRow
               label="Terrain estimation"
-              icon="🏔️"
+              icon={<MountainIcon className="h-4 w-4" />}
               checked={settings.terrainEstimation}
               onChange={() => toggle("terrainEstimation")}
               badge="zoom in"
             />
             <ToggleRow
               label="Contour lines"
-              icon="🌊"
+              icon={<WavesIcon className="h-4 w-4" />}
               checked={settings.contourLines}
               onChange={() => toggle("contourLines")}
             />
             <ToggleRow
               label="Biomes at elevation Y=320"
-              icon="📐"
+              icon={<RulerIcon className="h-4 w-4" />}
               checked={settings.biomesAtElevation}
               onChange={() => toggle("biomesAtElevation")}
             />
@@ -71,19 +80,19 @@ export default function MapSettingsPanel({ settings, onSettingsChange }: MapSett
           <div className="space-y-3">
             <ToggleRow
               label="Show grid"
-              icon="🔲"
+              icon={<GridIcon className="h-4 w-4" />}
               checked={settings.showGrid}
               onChange={() => toggle("showGrid")}
             />
             <ToggleRow
               label="Binary coordinates"
-              icon="🔢"
+              icon={<HashIcon className="h-4 w-4" />}
               checked={settings.binaryCoordinates}
               onChange={() => toggle("binaryCoordinates")}
             />
             <ToggleRow
               label="Chunk coordinates"
-              icon="📐"
+              icon={<RulerIcon className="h-4 w-4" />}
               checked={settings.chunkCoordinates}
               onChange={() => toggle("chunkCoordinates")}
               disabled={!settings.showGrid}
@@ -97,13 +106,13 @@ export default function MapSettingsPanel({ settings, onSettingsChange }: MapSett
           <div className="space-y-3">
             <ToggleRow
               label="Snap zoom level to 2ⁿ:1"
-              icon="🔍"
+              icon={<SearchIcon className="h-4 w-4" />}
               checked={settings.snapZoom}
               onChange={() => toggle("snapZoom")}
             />
             <ToggleRow
               label="Floating tooltip"
-              icon="💬"
+              icon={<MessageIcon className="h-4 w-4" />}
               checked={settings.floatingTooltip}
               onChange={() => toggle("floatingTooltip")}
             />
@@ -123,7 +132,7 @@ function ToggleRow({
   badge,
 }: {
   label: string;
-  icon: string;
+  icon: ReactNode;
   checked: boolean;
   onChange: () => void;
   disabled?: boolean;
@@ -149,7 +158,7 @@ function ToggleRow({
         />
       </button>
 
-      <span className="text-sm">{icon}</span>
+      <span className="flex h-4 w-4 items-center justify-center text-gray-300">{icon}</span>
       <span className={`text-sm ${checked ? "text-gray-200" : "text-gray-400"} group-hover:text-gray-200 transition-colors`}>
         {label}
       </span>

@@ -1,5 +1,7 @@
 "use client";
 
+import { AppLogoIcon } from "@/components/ui/icons";
+
 interface TopBarProps {
   seed: string;
   version: string;
@@ -11,8 +13,10 @@ export default function TopBar({ seed, version, edition }: TopBarProps) {
     <header className="bg-[#0d0d1a] border-b border-white/5 px-4 py-2.5 flex items-center justify-between">
       <div className="flex items-center gap-3">
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">⛏️</span>
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.03] text-emerald-300">
+            <AppLogoIcon className="h-5 w-5" />
+          </span>
           <h1 className="text-lg font-bold text-white tracking-tight">
             Chunk<span className="text-emerald-400">Loader</span>
           </h1>

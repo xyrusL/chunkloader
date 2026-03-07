@@ -165,3 +165,24 @@ export const BIOME_COLORS: Record<Biome, BiomeColor> = {
   // End
   [Biome.TheEnd]: { r: 128, g: 128, b: 90 },
 };
+
+export const BIOME_VALUES = Object.values(Biome) as Biome[];
+
+export const BIOME_INDEX = BIOME_VALUES.reduce(
+  (index, biome, biomeIndex) => {
+    index[biome] = biomeIndex;
+    return index;
+  },
+  {} as Record<Biome, number>
+);
+
+export const BIOME_PALETTE = new Uint8ClampedArray(BIOME_VALUES.length * 4);
+
+for (let i = 0; i < BIOME_VALUES.length; i++) {
+  const color = BIOME_COLORS[BIOME_VALUES[i]];
+  const offset = i * 4;
+  BIOME_PALETTE[offset] = color.r;
+  BIOME_PALETTE[offset + 1] = color.g;
+  BIOME_PALETTE[offset + 2] = color.b;
+  BIOME_PALETTE[offset + 3] = 255;
+}

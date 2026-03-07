@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ALL_OVERWORLD_BIOMES, STRUCTURE_TYPES } from "@/lib/biome-data";
 import { Biome } from "@/lib/biome-colors";
+import { ChevronDownIcon, SearchIcon, StructureIcon } from "@/components/ui/icons";
 
 export default function SeedFinderPanel() {
   const [highlightFound, setHighlightFound] = useState(false);
@@ -47,7 +48,7 @@ export default function SeedFinderPanel() {
                            text-gray-400 hover:border-white/20 transition-colors flex items-center justify-between"
               >
                 <span>{selectedBiomes.length > 0 ? `${selectedBiomes.length} selected` : "Select biomes"}</span>
-                <span className="text-gray-500">▾</span>
+                <ChevronDownIcon className="h-4 w-4 text-gray-500" />
               </button>
               {biomeDropdownOpen && (
                 <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-[#1a1a2e] border border-white/10 
@@ -102,7 +103,7 @@ export default function SeedFinderPanel() {
                            text-gray-400 hover:border-white/20 transition-colors flex items-center justify-between"
               >
                 <span>{selectedStructures.length > 0 ? `${selectedStructures.length} selected` : "Select structures"}</span>
-                <span className="text-gray-500">▾</span>
+                <ChevronDownIcon className="h-4 w-4 text-gray-500" />
               </button>
               {structureDropdownOpen && (
                 <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto bg-[#1a1a2e] border border-white/10 
@@ -111,9 +112,9 @@ export default function SeedFinderPanel() {
                     <label
                       key={s.id}
                       className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 cursor-pointer text-sm text-gray-300"
-                    >
-                      <input
-                        type="checkbox"
+                      >
+                        <input
+                          type="checkbox"
                         checked={selectedStructures.includes(s.id)}
                         onChange={() => {
                           setSelectedStructures((prev) =>
@@ -122,7 +123,9 @@ export default function SeedFinderPanel() {
                         }}
                         className="accent-emerald-500"
                       />
-                      <span>{s.icon}</span>
+                      <span className="flex h-4 w-4 items-center justify-center">
+                        <StructureIcon name={s.icon} className="h-4 w-4" />
+                      </span>
                       {s.name}
                     </label>
                   ))}
@@ -151,7 +154,7 @@ export default function SeedFinderPanel() {
           {/* Find button */}
           <button className="w-full flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5
                              text-sm text-gray-400 hover:bg-white/10 hover:text-white transition-colors">
-            <span>🔍</span>
+            <SearchIcon className="h-4 w-4" />
             <span>Find next seed</span>
           </button>
         </div>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { BIOME_CATEGORIES, ALL_OVERWORLD_BIOMES } from "@/lib/biome-data";
 import { Biome, BIOME_COLORS } from "@/lib/biome-colors";
+import { CheckSquareIcon, SparklesIcon, SquareIcon } from "@/components/ui/icons";
 
 export default function BiomesPanel() {
   const [highlightBiomes, setHighlightBiomes] = useState(false);
@@ -70,21 +71,24 @@ export default function BiomesPanel() {
           className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
                      text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
         >
-          ☑️ Select all
+          <CheckSquareIcon className="h-3.5 w-3.5" />
+          <span>Select all</span>
         </button>
         <button
           onClick={clearAll}
           className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
                      text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
         >
-          ☐ Clear
+          <SquareIcon className="h-3.5 w-3.5" />
+          <span>Clear</span>
         </button>
         <button
           onClick={invert}
           className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
                      text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
         >
-          ✦ Invert
+          <SparklesIcon className="h-3.5 w-3.5" />
+          <span>Invert</span>
         </button>
       </div>
 

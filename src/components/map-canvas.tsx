@@ -1,24 +1,53 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { MapSettingsState } from "@/components/panels/map-settings-panel";
+import { MapIcon } from "@/components/ui/icons";
 import { BiomeGenerator } from "@/lib/biome-generator";
-import { BIOME_COLORS, Biome } from "@/lib/biome-colors";
+import { BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
 import type { Edition } from "@/lib/minecraft-versions";
 
 interface MapCanvasProps {
   seed: string;
   edition: Edition;
   isGenerating: boolean;
+  settings: MapSettingsState;
   onBiomeHover: (biome: string, x: number, z: number) => void;
   onGenerationComplete: () => void;
 }
 
-const TILE_SIZE = 4; // pixels per block at base zoom
+type RenderMode = "generation" | "settled" | "interaction";
+
+interface RenderJob {
+  token: number;
+  notifyComplete: boolean;
+  canvasWidth: number;
+  canvasHeight: number;
+  blockSize: number;
+  sampleScale: number;
+  cols: number;
+  rows: number;
+  startCellX: number;
+  startCellZ: number;
+  rowsRendered: number;
+  imageData: ImageData;
+  offscreenCanvas: HTMLCanvasElement;
+  offscreenContext: CanvasRenderingContext2D;
+  frameBudgetMs: number;
+  drawGrid: boolean;
+  drawAxis: boolean;
+  offsetX: number;
+  offsetY: number;
+}
+
+const TILE_SIZE = 4;
+const SETTLE_DELAY_MS = 120;
 
 export default function MapCanvas({
   seed,
   edition,
   isGenerating,
+  settings,
   onBiomeHover,
   onGenerationComplete,
 }: MapCanvasProps) {
@@ -29,293 +58,473 @@ export default function MapCanvas({
   const zoomRef = useRef(1);
   const isDraggingRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
-  const animFrameRef = useRef<number>(0);
+  const prepareFrameRef = useRef<number>(0);
+  const renderFrameRef = useRef<number>(0);
+  const settleTimeoutRef = useRef<number>(0);
+  const renderTokenRef = useRef(0);
+  const pendingRenderRef = useRef<{ mode: RenderMode; notifyComplete: boolean } | null>(null);
+  const renderJobRef = useRef<RenderJob | null>(null);
+  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const offscreenContextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const lowEndDeviceRef = useRef(false);
+  const generationCompletePendingRef = useRef(false);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
+  const [isRenderingMap, setIsRenderingMap] = useState(false);
 
-  // Resize canvas to fill container
+  useEffect(() => {
+    lowEndDeviceRef.current = detectLowEndDevice();
+  }, []);
+
   useEffect(() => {
     const resize = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        setCanvasSize({ w: rect.width, h: rect.height });
+      if (!containerRef.current) {
+        return;
       }
+
+      const rect = containerRef.current.getBoundingClientRect();
+      setCanvasSize({ w: Math.max(1, Math.floor(rect.width)), h: Math.max(1, Math.floor(rect.height)) });
     };
+
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
 
-  // Render the biome map onto the canvas
-  const renderMap = useCallback(() => {
-    const canvas = canvasRef.current;
-    const gen = generatorRef.current;
-    if (!canvas || !gen) return;
+  useEffect(() => {
+    if (!isGenerating || !seed) {
+      return;
+    }
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    generatorRef.current = new BiomeGenerator(seed, edition);
+    generationCompletePendingRef.current = true;
+    offsetRef.current = { x: 0, y: 0 };
+    zoomRef.current = 1;
+    scheduleRender("generation", true);
+  }, [edition, isGenerating, seed]);
+
+  useEffect(() => {
+    if (!generatorRef.current) {
+      return;
+    }
+
+    scheduleRender("settled");
+  }, [canvasSize, settings]);
+
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(prepareFrameRef.current);
+      cancelAnimationFrame(renderFrameRef.current);
+      window.clearTimeout(settleTimeoutRef.current);
+    };
+  }, []);
+
+  function scheduleRender(mode: RenderMode, notifyComplete = false) {
+    pendingRenderRef.current = { mode, notifyComplete: pendingRenderRef.current?.notifyComplete || notifyComplete };
+    cancelAnimationFrame(prepareFrameRef.current);
+    prepareFrameRef.current = requestAnimationFrame(() => {
+      const request = pendingRenderRef.current;
+      pendingRenderRef.current = null;
+      if (request) {
+        beginRender(request.mode, request.notifyComplete);
+      }
+    });
+  }
+
+  function beginRender(mode: RenderMode, notifyComplete: boolean) {
+    const canvas = canvasRef.current;
+    if (!canvas || !generatorRef.current) {
+      return;
+    }
+
+    if (!canvas.getContext("2d")) {
+      return;
+    }
+
+    cancelAnimationFrame(renderFrameRef.current);
 
     const { w, h } = canvasSize;
     const zoom = zoomRef.current;
-    const offset = offsetRef.current;
-    const blockSize = TILE_SIZE * zoom;
+    const blockSize = Math.max(1, TILE_SIZE * zoom);
+    const sampleScale = getSampleScale(mode, zoom, lowEndDeviceRef.current);
+    const padding = 1;
+    const startCellX = Math.floor(-offsetRef.current.x / blockSize) - padding;
+    const startCellZ = Math.floor(-offsetRef.current.y / blockSize) - padding;
+    const cols = Math.ceil(w / blockSize) + padding * 2 + 1;
+    const rows = Math.ceil(h / blockSize) + padding * 2 + 1;
+    const { canvas: offscreenCanvas, context: offscreenContext } = ensureOffscreenBuffer(cols, rows);
+    const imageData = offscreenContext.createImageData(cols, rows);
+    const token = ++renderTokenRef.current;
 
-    // How many blocks fit on screen
-    const blocksW = Math.ceil(w / blockSize) + 2;
-    const blocksH = Math.ceil(h / blockSize) + 2;
+    renderJobRef.current = {
+      token,
+      notifyComplete,
+      canvasWidth: w,
+      canvasHeight: h,
+      blockSize,
+      sampleScale,
+      cols,
+      rows,
+      startCellX,
+      startCellZ,
+      rowsRendered: 0,
+      imageData,
+      offscreenCanvas,
+      offscreenContext,
+      frameBudgetMs: getFrameBudget(mode, lowEndDeviceRef.current),
+      drawGrid: settings.showGrid && mode === "settled" && zoom >= (lowEndDeviceRef.current ? 3 : 2),
+      drawAxis: mode === "settled" && zoom >= (lowEndDeviceRef.current ? 2.5 : 1.75),
+      offsetX: offsetRef.current.x,
+      offsetY: offsetRef.current.y,
+    };
 
-    // World offset in blocks
-    const worldOffsetX = Math.floor(-offset.x / blockSize);
-    const worldOffsetZ = Math.floor(-offset.y / blockSize);
-
-    // Sub-pixel offset for smooth scrolling
-    const subX = (offset.x % blockSize + blockSize) % blockSize;
-    const subY = (offset.y % blockSize + blockSize) % blockSize;
-
-    // Scale determines how many world blocks each pixel-block represents
-    const scale = Math.max(1, Math.round(4 / zoom));
-
-    // Create image buffer
-    const imageData = ctx.createImageData(w, h);
-    const data = imageData.data;
-
-    for (let bz = -1; bz < blocksH; bz++) {
-      for (let bx = -1; bx < blocksW; bx++) {
-        const worldX = (worldOffsetX + bx) * scale;
-        const worldZ = (worldOffsetZ + bz) * scale;
-
-        const biome = gen.getBiomeAt(worldX, worldZ);
-        const color = BIOME_COLORS[biome];
-
-        // Screen position
-        const screenX = Math.floor(bx * blockSize + subX);
-        const screenZ = Math.floor(bz * blockSize + subY);
-        const size = Math.ceil(blockSize);
-
-        // Fill the block rectangle
-        for (let py = Math.max(0, screenZ); py < Math.min(h, screenZ + size); py++) {
-          for (let px = Math.max(0, screenX); px < Math.min(w, screenX + size); px++) {
-            const idx = (py * w + px) * 4;
-            data[idx] = color.r;
-            data[idx + 1] = color.g;
-            data[idx + 2] = color.b;
-            data[idx + 3] = 255;
-          }
-        }
-      }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-
-    // Draw grid lines at low zoom
-    if (zoom >= 2) {
-      ctx.strokeStyle = "rgba(255,255,255,0.05)";
-      ctx.lineWidth = 1;
-      for (let bx = 0; bx < blocksW; bx++) {
-        const sx = Math.floor(bx * blockSize + subX);
-        ctx.beginPath();
-        ctx.moveTo(sx, 0);
-        ctx.lineTo(sx, h);
-        ctx.stroke();
-      }
-      for (let bz = 0; bz < blocksH; bz++) {
-        const sz = Math.floor(bz * blockSize + subY);
-        ctx.beginPath();
-        ctx.moveTo(0, sz);
-        ctx.lineTo(w, sz);
-        ctx.stroke();
-      }
-    }
-
-    // Draw axis labels
-    drawAxisLabels(ctx, w, h, offset, zoom, scale, blockSize);
-  }, [canvasSize]);
-
-  // Draw coordinate axis labels
-  function drawAxisLabels(
-    ctx: CanvasRenderingContext2D,
-    w: number,
-    h: number,
-    offset: { x: number; y: number },
-    zoom: number,
-    scale: number,
-    blockSize: number
-  ) {
-    ctx.font = "11px Inter, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-
-    const step = Math.max(1, Math.round(200 / blockSize)) * scale;
-    const roundedStep = roundToNice(step);
-
-    // X axis (bottom)
-    const startBlockX = Math.floor(-offset.x / blockSize) * scale;
-    const firstX = Math.ceil(startBlockX / roundedStep) * roundedStep;
-    for (let worldX = firstX; worldX < startBlockX + Math.ceil(w / blockSize) * scale + roundedStep; worldX += roundedStep) {
-      const screenX = (worldX / scale - Math.floor(-offset.x / blockSize)) * blockSize + (offset.x % blockSize + blockSize) % blockSize;
-      if (screenX >= 0 && screenX <= w) {
-        const label = formatCoord(worldX);
-        ctx.fillText(label, screenX + 2, h - 4);
-
-        // tick
-        ctx.strokeStyle = "rgba(255,255,255,0.15)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(screenX, h - 18);
-        ctx.lineTo(screenX, h);
-        ctx.stroke();
-      }
-    }
-
-    // Z axis (right)
-    const startBlockZ = Math.floor(-offset.y / blockSize) * scale;
-    const firstZ = Math.ceil(startBlockZ / roundedStep) * roundedStep;
-    for (let worldZ = firstZ; worldZ < startBlockZ + Math.ceil(h / blockSize) * scale + roundedStep; worldZ += roundedStep) {
-      const screenZ = (worldZ / scale - Math.floor(-offset.y / blockSize)) * blockSize + (offset.y % blockSize + blockSize) % blockSize;
-      if (screenZ >= 0 && screenZ <= h) {
-        const label = formatCoord(worldZ);
-        ctx.fillText(label, w - ctx.measureText(label).width - 4, screenZ - 2);
-
-        ctx.strokeStyle = "rgba(255,255,255,0.15)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(w - 18, screenZ);
-        ctx.lineTo(w, screenZ);
-        ctx.stroke();
-      }
-    }
-
-    // Origin crosshair
-    const originScreenX = offset.x + w / 2;
-    const originScreenZ = offset.y + h / 2;
-    // Only draw if visible — but our offset system starts at 0,0 in corner, not center
-    // Draw axis label
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.fillText("x", w / 2, h - 4);
-    ctx.fillText("z", w - 10, h / 2);
+    setIsRenderingMap(true);
+    renderFrameRef.current = requestAnimationFrame(() => continueRender(token));
   }
 
-  // Trigger generation when seed changes
-  useEffect(() => {
-    if (!isGenerating || !seed) return;
-
-    generatorRef.current = new BiomeGenerator(seed, edition);
-    offsetRef.current = { x: 0, y: 0 };
-    zoomRef.current = 1;
-
-    renderMap();
-    onGenerationComplete();
-  }, [isGenerating, seed, edition, renderMap, onGenerationComplete]);
-
-  // Re-render on canvas size change
-  useEffect(() => {
-    if (generatorRef.current) {
-      renderMap();
+  function continueRender(token: number) {
+    const job = renderJobRef.current;
+    const generator = generatorRef.current;
+    if (!job || !generator || job.token !== token) {
+      return;
     }
-  }, [canvasSize, renderMap]);
 
-  // Mouse handlers for pan
-  const handleMouseDown = (e: React.MouseEvent) => {
+    const startedAt = performance.now();
+    const data = job.imageData.data;
+
+    while (job.rowsRendered < job.rows && performance.now() - startedAt < job.frameBudgetMs) {
+      const row = job.rowsRendered;
+      const sampleZ = (job.startCellZ + row) * job.sampleScale;
+      for (let col = 0; col < job.cols; col++) {
+        const sampleX = (job.startCellX + col) * job.sampleScale;
+        const biomeIndex = generator.getBiomeIndexFromTile(sampleX, sampleZ, job.sampleScale);
+        const paletteOffset = biomeIndex * 4;
+        const pixelOffset = (row * job.cols + col) * 4;
+
+        data[pixelOffset] = BIOME_PALETTE[paletteOffset];
+        data[pixelOffset + 1] = BIOME_PALETTE[paletteOffset + 1];
+        data[pixelOffset + 2] = BIOME_PALETTE[paletteOffset + 2];
+        data[pixelOffset + 3] = 255;
+      }
+      job.rowsRendered += 1;
+    }
+
+    job.offscreenContext.putImageData(job.imageData, 0, 0);
+    drawFrame(job);
+
+    if (job.rowsRendered < job.rows) {
+      renderFrameRef.current = requestAnimationFrame(() => continueRender(token));
+      return;
+    }
+
+    renderJobRef.current = null;
+    setIsRenderingMap(false);
+
+    if (job.notifyComplete || generationCompletePendingRef.current) {
+      generationCompletePendingRef.current = false;
+      onGenerationComplete();
+    }
+  }
+
+  function ensureOffscreenBuffer(width: number, height: number) {
+    if (!offscreenCanvasRef.current) {
+      offscreenCanvasRef.current = document.createElement("canvas");
+      offscreenContextRef.current = offscreenCanvasRef.current.getContext("2d", { alpha: false });
+    }
+
+    const offscreenCanvas = offscreenCanvasRef.current;
+    const offscreenContext = offscreenContextRef.current;
+    if (!offscreenCanvas || !offscreenContext) {
+      throw new Error("Unable to allocate offscreen canvas");
+    }
+
+    if (offscreenCanvas.width !== width || offscreenCanvas.height !== height) {
+      offscreenCanvas.width = width;
+      offscreenCanvas.height = height;
+    }
+
+    return { canvas: offscreenCanvas, context: offscreenContext };
+  }
+
+  function drawFrame(job: RenderJob) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.clearRect(0, 0, job.canvasWidth, job.canvasHeight);
+    context.imageSmoothingEnabled = false;
+    context.drawImage(
+      job.offscreenCanvas,
+      job.startCellX * job.blockSize + job.offsetX,
+      job.startCellZ * job.blockSize + job.offsetY,
+      job.cols * job.blockSize,
+      job.rows * job.blockSize
+    );
+
+    if (job.drawGrid) {
+      drawGrid(context, job);
+    }
+
+    if (job.drawAxis) {
+      drawAxisLabels(context, job, settings);
+    }
+  }
+
+  function queueSettledRender() {
+    window.clearTimeout(settleTimeoutRef.current);
+    settleTimeoutRef.current = window.setTimeout(() => {
+      scheduleRender("settled");
+    }, SETTLE_DELAY_MS);
+  }
+
+  function handleMouseDown(event: React.MouseEvent) {
     isDraggingRef.current = true;
-    lastMouseRef.current = { x: e.clientX, y: e.clientY };
-    if (containerRef.current) containerRef.current.style.cursor = "grabbing";
-  };
+    lastMouseRef.current = { x: event.clientX, y: event.clientY };
+    if (containerRef.current) {
+      containerRef.current.style.cursor = "grabbing";
+    }
+  }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    // Update biome hover info
+  function handleMouseMove(event: React.MouseEvent) {
     if (generatorRef.current && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
-      const zoom = zoomRef.current;
-      const blockSize = TILE_SIZE * zoom;
-      const scale = Math.max(1, Math.round(4 / zoom));
-      const worldX = Math.floor((px - offsetRef.current.x) / blockSize) * scale;
-      const worldZ = Math.floor((py - offsetRef.current.y) / blockSize) * scale;
-      const biome = generatorRef.current.getBiomeAt(worldX, worldZ);
-      onBiomeHover(biome, worldX, worldZ);
+      const px = event.clientX - rect.left;
+      const py = event.clientY - rect.top;
+      const hoverScale = getSampleScale("settled", zoomRef.current, lowEndDeviceRef.current);
+      const blockSize = Math.max(1, TILE_SIZE * zoomRef.current);
+      const worldX = Math.floor((px - offsetRef.current.x) / blockSize) * hoverScale;
+      const worldZ = Math.floor((py - offsetRef.current.y) / blockSize) * hoverScale;
+      const biomeIndex = generatorRef.current.getBiomeIndexFromTile(worldX, worldZ, hoverScale);
+      onBiomeHover(BIOME_VALUES[biomeIndex], worldX, worldZ);
     }
 
-    if (!isDraggingRef.current) return;
+    if (!isDraggingRef.current) {
+      return;
+    }
 
-    const dx = e.clientX - lastMouseRef.current.x;
-    const dy = e.clientY - lastMouseRef.current.y;
-    lastMouseRef.current = { x: e.clientX, y: e.clientY };
+    const dx = event.clientX - lastMouseRef.current.x;
+    const dy = event.clientY - lastMouseRef.current.y;
+    lastMouseRef.current = { x: event.clientX, y: event.clientY };
     offsetRef.current.x += dx;
     offsetRef.current.y += dy;
 
-    cancelAnimationFrame(animFrameRef.current);
-    animFrameRef.current = requestAnimationFrame(renderMap);
-  };
+    scheduleRender("interaction");
+    queueSettledRender();
+  }
 
-  const handleMouseUp = () => {
+  function handleMouseUp() {
     isDraggingRef.current = false;
-    if (containerRef.current) containerRef.current.style.cursor = "grab";
-  };
+    if (containerRef.current) {
+      containerRef.current.style.cursor = "grab";
+    }
+    queueSettledRender();
+  }
 
-  // Wheel handler for zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+  function handleWheel(event: React.WheelEvent) {
+    event.preventDefault();
+    const zoomFactor = event.deltaY < 0 ? 1.15 : 0.87;
     const oldZoom = zoomRef.current;
-    const newZoom = Math.max(0.1, Math.min(20, oldZoom * zoomFactor));
-
-    // Zoom towards mouse position
+    const unclampedZoom = oldZoom * zoomFactor;
+    const newZoom = clampZoom(settings.snapZoom ? snapZoomLevel(unclampedZoom) : unclampedZoom);
     const rect = canvasRef.current?.getBoundingClientRect();
+
     if (rect) {
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
       offsetRef.current.x = mouseX - (mouseX - offsetRef.current.x) * (newZoom / oldZoom);
       offsetRef.current.y = mouseY - (mouseY - offsetRef.current.y) * (newZoom / oldZoom);
     }
 
     zoomRef.current = newZoom;
-    cancelAnimationFrame(animFrameRef.current);
-    animFrameRef.current = requestAnimationFrame(renderMap);
-  };
+    scheduleRender("interaction");
+    queueSettledRender();
+  }
 
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 bg-[#1a1a2e] overflow-hidden cursor-grab select-none"
+      className="relative h-full w-full overflow-hidden bg-[#1a1a2e] select-none"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
+      style={{ cursor: generatorRef.current ? "grab" : "default" }}
     >
-      <canvas
-        ref={canvasRef}
-        width={canvasSize.w}
-        height={canvasSize.h}
-        className="block"
-      />
+      <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h} className="block h-full w-full" />
 
       {!generatorRef.current && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="text-6xl">🗺️</div>
-            <p className="text-gray-400 text-lg">
-              Enter a seed and click <span className="text-emerald-400 font-semibold">Generate Map</span> to start
+          <div className="space-y-4 text-center">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] text-emerald-300">
+              <MapIcon className="h-10 w-10" />
+            </div>
+            <p className="text-lg text-gray-400">
+              Enter a seed and click <span className="font-semibold text-emerald-400">Generate Map</span> to start
             </p>
-            <p className="text-gray-500 text-sm">
-              Drag to pan • Scroll to zoom
-            </p>
+            <p className="text-sm text-gray-500">Drag to pan • Scroll to zoom</p>
           </div>
+        </div>
+      )}
+
+      {generatorRef.current && isRenderingMap && (
+        <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs text-white/70 backdrop-blur">
+          {lowEndDeviceRef.current ? "Optimized progressive render" : "Rendering map"}
         </div>
       )}
     </div>
   );
 }
 
-function roundToNice(n: number): number {
-  const pow = Math.pow(10, Math.floor(Math.log10(Math.abs(n) || 1)));
-  const norm = n / pow;
-  if (norm <= 1) return pow;
-  if (norm <= 2) return 2 * pow;
-  if (norm <= 5) return 5 * pow;
-  return 10 * pow;
+function drawGrid(context: CanvasRenderingContext2D, job: RenderJob) {
+  context.strokeStyle = "rgba(255,255,255,0.06)";
+  context.lineWidth = 1;
+
+  for (let col = 0; col < job.cols; col++) {
+    const screenX = (job.startCellX + col) * job.blockSize + job.offsetX;
+    if (screenX < 0 || screenX > job.canvasWidth) {
+      continue;
+    }
+    context.beginPath();
+    context.moveTo(screenX, 0);
+    context.lineTo(screenX, job.canvasHeight);
+    context.stroke();
+  }
+
+  for (let row = 0; row < job.rows; row++) {
+    const screenY = (job.startCellZ + row) * job.blockSize + job.offsetY;
+    if (screenY < 0 || screenY > job.canvasHeight) {
+      continue;
+    }
+    context.beginPath();
+    context.moveTo(0, screenY);
+    context.lineTo(job.canvasWidth, screenY);
+    context.stroke();
+  }
 }
 
-function formatCoord(n: number): string {
-  if (Math.abs(n) >= 1000) return `${Math.round(n / 1000)}k`;
-  return String(Math.round(n));
+function drawAxisLabels(
+  context: CanvasRenderingContext2D,
+  job: RenderJob,
+  settings: MapSettingsState
+) {
+  context.font = "11px Inter, sans-serif";
+  context.fillStyle = "rgba(255,255,255,0.55)";
+  context.strokeStyle = "rgba(255,255,255,0.14)";
+  context.lineWidth = 1;
+
+  const visibleWorldWidth = Math.ceil(job.canvasWidth / job.blockSize) * job.sampleScale;
+  const visibleWorldHeight = Math.ceil(job.canvasHeight / job.blockSize) * job.sampleScale;
+  const labelStep = roundToNice(Math.max(job.sampleScale, Math.round(180 / job.blockSize) * job.sampleScale));
+  const startWorldX = Math.floor(-job.offsetX / job.blockSize) * job.sampleScale;
+  const startWorldZ = Math.floor(-job.offsetY / job.blockSize) * job.sampleScale;
+  const firstLabelX = Math.ceil(startWorldX / labelStep) * labelStep;
+  const firstLabelZ = Math.ceil(startWorldZ / labelStep) * labelStep;
+
+  for (let worldX = firstLabelX; worldX <= startWorldX + visibleWorldWidth + labelStep; worldX += labelStep) {
+    const screenX = (worldX / job.sampleScale) * job.blockSize + job.offsetX;
+    if (screenX < 0 || screenX > job.canvasWidth) {
+      continue;
+    }
+
+    const label = formatCoord(worldX, settings);
+    context.fillText(label, screenX + 3, job.canvasHeight - 4);
+    context.beginPath();
+    context.moveTo(screenX, job.canvasHeight - 16);
+    context.lineTo(screenX, job.canvasHeight);
+    context.stroke();
+  }
+
+  for (let worldZ = firstLabelZ; worldZ <= startWorldZ + visibleWorldHeight + labelStep; worldZ += labelStep) {
+    const screenY = (worldZ / job.sampleScale) * job.blockSize + job.offsetY;
+    if (screenY < 0 || screenY > job.canvasHeight) {
+      continue;
+    }
+
+    const label = formatCoord(worldZ, settings);
+    context.fillText(label, job.canvasWidth - context.measureText(label).width - 4, screenY - 2);
+    context.beginPath();
+    context.moveTo(job.canvasWidth - 16, screenY);
+    context.lineTo(job.canvasWidth, screenY);
+    context.stroke();
+  }
+}
+
+function detectLowEndDevice(): boolean {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const hardwareThreads = navigator.hardwareConcurrency ?? 8;
+  const memory = "deviceMemory" in navigator
+    ? Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8)
+    : 8;
+  const prefersReducedMotion = typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  return hardwareThreads <= 4 || memory <= 4 || prefersReducedMotion;
+}
+
+function getSampleScale(mode: RenderMode, zoom: number, lowEndDevice: boolean): number {
+  const baseScale = Math.max(1, Math.round(4 / zoom));
+  const lowEndMultiplier = lowEndDevice && zoom < 0.85 ? 2 : 1;
+  const interactionMultiplier = mode === "interaction" ? 2 : 1;
+  return baseScale * lowEndMultiplier * interactionMultiplier;
+}
+
+function getFrameBudget(mode: RenderMode, lowEndDevice: boolean): number {
+  if (mode === "interaction") {
+    return lowEndDevice ? 4 : 6;
+  }
+
+  if (mode === "generation") {
+    return lowEndDevice ? 5 : 8;
+  }
+
+  return lowEndDevice ? 6 : 10;
+}
+
+function clampZoom(zoom: number): number {
+  return Math.max(0.1, Math.min(20, zoom));
+}
+
+function snapZoomLevel(zoom: number): number {
+  const exponent = Math.round(Math.log2(Math.max(zoom, 0.1)));
+  return 2 ** exponent;
+}
+
+function roundToNice(value: number): number {
+  const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value) || 1));
+  const normalized = value / magnitude;
+  if (normalized <= 1) {
+    return magnitude;
+  }
+  if (normalized <= 2) {
+    return 2 * magnitude;
+  }
+  if (normalized <= 5) {
+    return 5 * magnitude;
+  }
+  return 10 * magnitude;
+}
+
+function formatCoord(value: number, settings: MapSettingsState): string {
+  if (settings.chunkCoordinates) {
+    return `${Math.round(value / 16)}c`;
+  }
+
+  if (settings.binaryCoordinates) {
+    return `0b${Math.round(value).toString(2)}`;
+  }
+
+  if (Math.abs(value) >= 1000) {
+    return `${Math.round(value / 1000)}k`;
+  }
+
+  return String(Math.round(value));
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getVersionsForEdition } from "@/lib/minecraft-versions";
 import type { Edition, MinecraftVersion } from "@/lib/minecraft-versions";
+import { CoffeeIcon, DiceIcon, LayersIcon, MapIcon, SpinnerIcon } from "@/components/ui/icons";
 
 interface SeedInputPanelProps {
   onGenerate: (seed: string, version: MinecraftVersion, edition: Edition) => void;
@@ -45,23 +46,25 @@ export default function SeedInputPanel({ onGenerate, isGenerating }: SeedInputPa
         <div className="flex rounded-lg overflow-hidden border border-white/10">
           <button
             onClick={() => handleEditionChange("java")}
-            className={`px-4 py-2 text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
               edition === "java"
                 ? "bg-emerald-600 text-white"
                 : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
             }`}
           >
-            ☕ Java
+            <CoffeeIcon className="h-4 w-4" />
+            <span>Java</span>
           </button>
           <button
             onClick={() => handleEditionChange("bedrock")}
-            className={`px-4 py-2 text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium transition-all ${
               edition === "bedrock"
                 ? "bg-blue-600 text-white"
                 : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
             }`}
           >
-            🪨 Bedrock
+            <LayersIcon className="h-4 w-4" />
+            <span>Bedrock</span>
           </button>
         </div>
 
@@ -99,11 +102,12 @@ export default function SeedInputPanel({ onGenerate, isGenerating }: SeedInputPa
           </div>
           <button
             onClick={handleRandom}
-            className="px-3 py-2 text-sm bg-white/5 border border-white/10 rounded-lg text-gray-300 
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-white/5 border border-white/10 rounded-lg text-gray-300 
                        hover:bg-white/10 hover:text-white transition-all whitespace-nowrap"
             title="Random seed"
           >
-            🎲 Random
+            <DiceIcon className="h-4 w-4" />
+            <span>Random</span>
           </button>
         </div>
 
@@ -118,10 +122,14 @@ export default function SeedInputPanel({ onGenerate, isGenerating }: SeedInputPa
         >
           {isGenerating ? (
             <span className="flex items-center gap-2">
-              <span className="animate-spin">⏳</span> Generating...
+              <SpinnerIcon className="h-4 w-4 animate-spin" />
+              <span>Generating...</span>
             </span>
           ) : (
-            "🗺️ Generate Map"
+            <span className="flex items-center gap-2">
+              <MapIcon className="h-4 w-4" />
+              <span>Generate Map</span>
+            </span>
           )}
         </button>
       </div>

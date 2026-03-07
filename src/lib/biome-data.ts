@@ -105,26 +105,26 @@ export const ALL_OVERWORLD_BIOMES: Biome[] = BIOME_CATEGORIES.flatMap((c) => c.b
 export interface StructureType {
   id: string;
   name: string;
-  icon: string;
+  icon: import("@/components/ui/icons").StructureIconName;
 }
 
 export const STRUCTURE_TYPES: StructureType[] = [
-  { id: "village", name: "Village", icon: "🏘️" },
-  { id: "ocean_monument", name: "Ocean Monument", icon: "🏛️" },
-  { id: "shipwreck", name: "Shipwreck", icon: "⛵" },
-  { id: "mineshaft", name: "Mineshaft", icon: "⛏️" },
-  { id: "ancient_city", name: "Ancient City", icon: "🏚️" },
-  { id: "amethyst_geode", name: "Amethyst Geode", icon: "💎" },
-  { id: "woodland_mansion", name: "Woodland Mansion", icon: "🏰" },
-  { id: "desert_pyramid", name: "Desert Pyramid", icon: "🏜️" },
-  { id: "jungle_temple", name: "Jungle Temple", icon: "🗿" },
-  { id: "igloo", name: "Igloo", icon: "🧊" },
-  { id: "pillager_outpost", name: "Pillager Outpost", icon: "🗼" },
-  { id: "ruined_portal", name: "Ruined Portal", icon: "🌀" },
-  { id: "buried_treasure", name: "Buried Treasure", icon: "💰" },
-  { id: "swamp_hut", name: "Swamp Hut", icon: "🛖" },
-  { id: "stronghold", name: "Stronghold", icon: "🏗️" },
-  { id: "ocean_ruin", name: "Ocean Ruin", icon: "🏚️" },
-  { id: "trail_ruin", name: "Trail Ruin", icon: "🗺️" },
-  { id: "trial_chambers", name: "Trial Chambers", icon: "⚔️" },
+  { id: "village", name: "Village", icon: "village" },
+  { id: "ocean_monument", name: "Ocean Monument", icon: "ocean_monument" },
+  { id: "shipwreck", name: "Shipwreck", icon: "shipwreck" },
+  { id: "mineshaft", name: "Mineshaft", icon: "mineshaft" },
+  { id: "ancient_city", name: "Ancient City", icon: "ancient_city" },
+  { id: "amethyst_geode", name: "Amethyst Geode", icon: "amethyst_geode" },
+  { id: "woodland_mansion", name: "Woodland Mansion", icon: "woodland_mansion" },
+  { id: "desert_pyramid", name: "Desert Pyramid", icon: "desert_pyramid" },
+  { id: "jungle_temple", name: "Jungle Temple", icon: "jungle_temple" },
+  { id: "igloo", name: "Igloo", icon: "igloo" },
+  { id: "pillager_outpost", name: "Pillager Outpost", icon: "pillager_outpost" },
+  { id: "ruined_portal", name: "Ruined Portal", icon: "ruined_portal" },
+  { id: "buried_treasure", name: "Buried Treasure", icon: "buried_treasure" },
+  { id: "swamp_hut", name: "Swamp Hut", icon: "swamp_hut" },
+  { id: "stronghold", name: "Stronghold", icon: "stronghold" },
+  { id: "ocean_ruin", name: "Ocean Ruin", icon: "ocean_ruin" },
+  { id: "trail_ruin", name: "Trail Ruin", icon: "trail_ruin" },
+  { id: "trial_chambers", name: "Trial Chambers", icon: "trial_chambers" },
 ];

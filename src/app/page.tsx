@@ -63,30 +63,40 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a14] text-white">
+    <div className="min-h-screen bg-[#0a0a14] text-white">
       <TopBar seed={seed} version={version} edition={edition} />
       <SeedInputPanel onGenerate={handleGenerate} isGenerating={isGenerating} />
-      <MapInfoBar
-        biome={hoveredBiome}
-        x={hoveredX}
-        z={hoveredZ}
-        version={version}
-        edition={edition}
-        seed={seed}
-      />
-      <MapCanvas
-        seed={seed}
-        edition={edition}
-        isGenerating={isGenerating}
-        onBiomeHover={handleBiomeHover}
-        onGenerationComplete={handleGenerationComplete}
-      />
-      <BottomTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <section className="flex h-[calc(100vh-17rem)] min-h-[22rem] flex-col border-b border-white/5">
+        <MapInfoBar
+          biome={hoveredBiome}
+          x={hoveredX}
+          z={hoveredZ}
+          version={version}
+          edition={edition}
+          seed={seed}
+        />
+        <div className="min-h-0 flex-1">
+          <MapCanvas
+            seed={seed}
+            edition={edition}
+            isGenerating={isGenerating}
+            settings={mapSettings}
+            onBiomeHover={handleBiomeHover}
+            onGenerationComplete={handleGenerationComplete}
+          />
+        </div>
+      </section>
 
-      {/* Tab Panel — slides up from bottom */}
-      <div className="bg-[#12122a] border-t border-white/5 overflow-y-auto max-h-[320px] custom-scrollbar">
-        {renderPanel()}
-      </div>
+      <section className="bg-[#090916]">
+        <div className="shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+          <BottomTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        </div>
+        <div className="bg-[#111124]">
+          <div className="mx-auto w-full max-w-7xl">
+            {renderPanel()}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
