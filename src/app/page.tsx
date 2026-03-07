@@ -12,6 +12,7 @@ import type { MapSettingsState } from "@/components/panels/map-settings-panel";
 import SeedFinderPanel from "@/components/panels/seed-finder-panel";
 import MarkersPanel from "@/components/panels/markers-panel";
 import BiomesPanel from "@/components/panels/biomes-panel";
+import { createDefaultBiomeOverlayState, createDefaultMarkerSettings } from "@/lib/map-overlays";
 import type { Edition, MinecraftVersion } from "@/lib/minecraft-versions";
 
 export default function Home() {
@@ -21,6 +22,8 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState("seed");
   const [mapSettings, setMapSettings] = useState<MapSettingsState>(DEFAULT_MAP_SETTINGS);
+  const [markerSettings, setMarkerSettings] = useState(createDefaultMarkerSettings);
+  const [biomeOverlay, setBiomeOverlay] = useState(createDefaultBiomeOverlayState);
 
   // Hovered biome info
   const [hoveredBiome, setHoveredBiome] = useState("");
@@ -54,9 +57,9 @@ export default function Home() {
       case "finder":
         return <SeedFinderPanel />;
       case "markers":
-        return <MarkersPanel />;
+        return <MarkersPanel settings={markerSettings} onSettingsChange={setMarkerSettings} />;
       case "biomes":
-        return <BiomesPanel />;
+        return <BiomesPanel settings={biomeOverlay} onSettingsChange={setBiomeOverlay} />;
       default:
         return null;
     }
@@ -81,6 +84,8 @@ export default function Home() {
             edition={edition}
             isGenerating={isGenerating}
             settings={mapSettings}
+            markerSettings={markerSettings}
+            biomeOverlay={biomeOverlay}
             onBiomeHover={handleBiomeHover}
             onGenerationComplete={handleGenerationComplete}
           />

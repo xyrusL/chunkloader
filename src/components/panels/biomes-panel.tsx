@@ -1,42 +1,48 @@
 "use client";
 
-import { useState } from "react";
 import { BIOME_CATEGORIES, ALL_OVERWORLD_BIOMES } from "@/lib/biome-data";
 import { Biome, BIOME_COLORS } from "@/lib/biome-colors";
+import type { BiomeOverlayState } from "@/lib/map-overlays";
 import { CheckSquareIcon, SparklesIcon, SquareIcon } from "@/components/ui/icons";
 
-export default function BiomesPanel() {
-  const [highlightBiomes, setHighlightBiomes] = useState(false);
-  const [selectedBiomes, setSelectedBiomes] = useState<Set<Biome>>(new Set());
+interface BiomesPanelProps {
+  settings: BiomeOverlayState;
+  onSettingsChange: (settings: BiomeOverlayState) => void;
+}
+
+export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelProps) {
+  const { highlightBiomes, selectedBiomes } = settings;
+
+  const update = (patch: Partial<BiomeOverlayState>) => {
+    onSettingsChange({ ...settings, ...patch });
+  };
 
   const toggleBiome = (biome: Biome) => {
-    setSelectedBiomes((prev) => {
-      const next = new Set(prev);
-      if (next.has(biome)) {
-        next.delete(biome);
-      } else {
-        next.add(biome);
-      }
-      return next;
-    });
+    const next = new Set(selectedBiomes);
+    if (next.has(biome)) {
+      next.delete(biome);
+    } else {
+      next.add(biome);
+    }
+    update({ selectedBiomes: next });
   };
 
   const selectAll = () => {
-    setSelectedBiomes(new Set(ALL_OVERWORLD_BIOMES));
+    update({ selectedBiomes: new Set(ALL_OVERWORLD_BIOMES) });
   };
 
   const clearAll = () => {
-    setSelectedBiomes(new Set());
+    update({ selectedBiomes: new Set() });
   };
 
   const invert = () => {
-    setSelectedBiomes((prev) => {
-      const next = new Set<Biome>();
-      ALL_OVERWORLD_BIOMES.forEach((b) => {
-        if (!prev.has(b)) next.add(b);
-      });
-      return next;
+    const next = new Set<Biome>();
+    ALL_OVERWORLD_BIOMES.forEach((biome) => {
+      if (!selectedBiomes.has(biome)) {
+        next.add(biome);
+      }
     });
+    update({ selectedBiomes: next });
   };
 
   return (
@@ -46,7 +52,7 @@ export default function BiomesPanel() {
       {/* Highlight toggle */}
       <label className="flex items-center gap-3 cursor-pointer mb-3">
         <button
-          onClick={() => setHighlightBiomes(!highlightBiomes)}
+          onClick={() => update({ highlightBiomes: !highlightBiomes })}
           className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
             highlightBiomes ? "bg-emerald-500" : "bg-white/10"
           }`}

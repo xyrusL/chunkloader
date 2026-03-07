@@ -1,33 +1,37 @@
 "use client";
 
-import { useState } from "react";
 import { STRUCTURE_TYPES } from "@/lib/biome-data";
+import type { MarkerSettingsState } from "@/lib/map-overlays";
 import { CheckSquareIcon, SquareIcon, StructureIcon, WarningIcon } from "@/components/ui/icons";
 
-export default function MarkersPanel() {
-  const [spawnPoint, setSpawnPoint] = useState(true);
-  const [slimeChunks, setSlimeChunks] = useState(false);
-  const [structuresEnabled, setStructuresEnabled] = useState(true);
-  const [selectedStructures, setSelectedStructures] = useState<Set<string>>(new Set(["village"]));
+interface MarkersPanelProps {
+  settings: MarkerSettingsState;
+  onSettingsChange: (settings: MarkerSettingsState) => void;
+}
+
+export default function MarkersPanel({ settings, onSettingsChange }: MarkersPanelProps) {
+  const { spawnPoint, slimeChunks, structuresEnabled, selectedStructures } = settings;
+
+  const update = (patch: Partial<MarkerSettingsState>) => {
+    onSettingsChange({ ...settings, ...patch });
+  };
 
   const toggleStructure = (id: string) => {
-    setSelectedStructures((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    const next = new Set(selectedStructures);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    update({ selectedStructures: next });
   };
 
   const selectAll = () => {
-    setSelectedStructures(new Set(STRUCTURE_TYPES.map((s) => s.id)));
+    update({ selectedStructures: new Set(STRUCTURE_TYPES.map((s) => s.id)) });
   };
 
   const clearAll = () => {
-    setSelectedStructures(new Set());
+    update({ selectedStructures: new Set() });
   };
 
   return (
@@ -36,8 +40,8 @@ export default function MarkersPanel() {
 
       {/* Top toggles */}
       <div className="flex items-center gap-6 mb-5">
-        <ToggleSwitch label="Spawn point" checked={spawnPoint} onChange={() => setSpawnPoint(!spawnPoint)} />
-        <ToggleSwitch label="Slime chunks" checked={slimeChunks} onChange={() => setSlimeChunks(!slimeChunks)} />
+        <ToggleSwitch label="Spawn point" checked={spawnPoint} onChange={() => update({ spawnPoint: !spawnPoint })} />
+        <ToggleSwitch label="Slime chunks" checked={slimeChunks} onChange={() => update({ slimeChunks: !slimeChunks })} />
       </div>
 
       {/* Structures section */}
@@ -46,7 +50,7 @@ export default function MarkersPanel() {
           <ToggleSwitch
             label={`Structures (selected: ${selectedStructures.size})`}
             checked={structuresEnabled}
-            onChange={() => setStructuresEnabled(!structuresEnabled)}
+            onChange={() => update({ structuresEnabled: !structuresEnabled })}
           />
         </div>
 
@@ -86,8 +90,8 @@ export default function MarkersPanel() {
                         : "bg-white/[0.02] border-white/5 text-gray-400 hover:bg-white/5 hover:text-gray-200"
                     }`}
                   >
-                    <span className="flex h-4 w-4 items-center justify-center">
-                      <StructureIcon name={structure.icon} className="h-4 w-4" />
+                    <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-black/20 ring-1 ring-white/5">
+                      <StructureIcon name={structure.icon} className="h-[18px] w-[18px]" />
                     </span>
                     <span className="truncate">{structure.name}</span>
                   </button>
