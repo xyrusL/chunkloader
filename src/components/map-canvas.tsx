@@ -10,8 +10,8 @@ import {
   StructureIcon,
   VillagerHeadIcon,
 } from "@/components/ui/icons";
-import { BiomeGenerator } from "@/lib/biome-generator";
-import { BIOME_PALETTE, BIOME_VALUES, type Biome } from "@/lib/biome-colors";
+import { BiomeGenerator, type TerrainSample } from "@/lib/biome-generator";
+import { Biome, BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
 import {
   getPixelsPerBlock,
   getVisibleStructureMarkers,
@@ -55,6 +55,10 @@ interface RenderJob {
   frameBudgetMs: number;
   drawGrid: boolean;
   drawAxis: boolean;
+  useTerrainModel: boolean;
+  useTerrainShading: boolean;
+  drawContours: boolean;
+  elevatedBiomes: boolean;
   offsetX: number;
   offsetY: number;
   biomeLabels: VisibleBiomeLabel[];
@@ -103,6 +107,7 @@ export default function MapCanvas({
   const offsetRef = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(1);
   const isDraggingRef = useRef(false);
+  const dragButtonRef = useRef<number | null>(null);
   const lastMouseRef = useRef({ x: 0, y: 0 });
   const dragStartRef = useRef({ x: 0, y: 0 });
   const downOverlayKeyRef = useRef<string | null>(null);
@@ -289,6 +294,10 @@ export default function MapCanvas({
       frameBudgetMs: getFrameBudget(mode, lowEndDeviceRef.current),
       drawGrid: settings.showGrid && mode === "settled" && zoom >= (lowEndDeviceRef.current ? 3 : 2),
       drawAxis: mode === "settled" && zoom >= (lowEndDeviceRef.current ? 2.5 : 1.75),
+      useTerrainModel: settings.terrainEstimation || settings.contourLines || settings.biomesAtElevation,
+      useTerrainShading: settings.terrainEstimation,
+      drawContours: settings.contourLines && mode === "settled",
+      elevatedBiomes: settings.biomesAtElevation,
       offsetX: offsetRef.current.x,
       offsetY: offsetRef.current.y,
       biomeLabels: [],
@@ -320,13 +329,29 @@ export default function MapCanvas({
       const sampleZ = (job.startCellZ + row) * job.sampleScale;
       for (let col = 0; col < job.cols; col++) {
         const sampleX = (job.startCellX + col) * job.sampleScale;
-        const biomeIndex = generator.getBiomeIndexFromTile(sampleX, sampleZ, job.sampleScale);
+        const terrain = job.useTerrainModel
+          ? generator.getTerrainSampleFromTile(sampleX, sampleZ, job.sampleScale)
+          : null;
+        const biomeIndex = terrain?.biomeIndex ?? generator.getBiomeIndexFromTile(sampleX, sampleZ, job.sampleScale);
         const biome = BIOME_VALUES[biomeIndex];
         const paletteOffset = biomeIndex * 4;
         const pixelOffset = (row * job.cols + col) * 4;
         let red = BIOME_PALETTE[paletteOffset];
         let green = BIOME_PALETTE[paletteOffset + 1];
         let blue = BIOME_PALETTE[paletteOffset + 2];
+
+        if (terrain) {
+          ({ red, green, blue } = applyTerrainStyle({
+            biome,
+            red,
+            green,
+            blue,
+            terrain,
+            terrainEstimation: job.useTerrainShading,
+            contourLines: job.drawContours,
+            biomesAtElevation: job.elevatedBiomes,
+          }));
+        }
 
         if (biomeOverlay.highlightBiomes && biomeOverlay.selectedBiomes.has(biome)) {
           red = brightenChannel(red, 32);
@@ -449,7 +474,13 @@ export default function MapCanvas({
   }
 
   function handleMouseDown(event: React.MouseEvent) {
+    if (!generatorRef.current || (event.button !== 0 && event.button !== 2)) {
+      return;
+    }
+
+    event.preventDefault();
     isDraggingRef.current = true;
+    dragButtonRef.current = event.button;
     lastMouseRef.current = { x: event.clientX, y: event.clientY };
     dragStartRef.current = { x: event.clientX, y: event.clientY };
     downOverlayKeyRef.current = getOverlayTargetAtPoint(
@@ -490,6 +521,14 @@ export default function MapCanvas({
       return;
     }
 
+    const expectedButtonMask = dragButtonRef.current === 2 ? 2 : 1;
+    if ((event.buttons & expectedButtonMask) === 0) {
+      handleMouseUp();
+      return;
+    }
+
+    event.preventDefault();
+
     const dx = event.clientX - lastMouseRef.current.x;
     const dy = event.clientY - lastMouseRef.current.y;
     lastMouseRef.current = { x: event.clientX, y: event.clientY };
@@ -510,6 +549,7 @@ export default function MapCanvas({
       : null;
 
     isDraggingRef.current = false;
+    dragButtonRef.current = null;
     if (containerRef.current) {
       containerRef.current.style.cursor = hoveredOverlayKey ? "pointer" : "grab";
     }
@@ -529,6 +569,10 @@ export default function MapCanvas({
   }
 
   function applyZoomFromWheel(deltaY: number, clientX: number, clientY: number) {
+    if (isDraggingRef.current || dragButtonRef.current !== null) {
+      return;
+    }
+
     const zoomFactor = deltaY < 0 ? 1.15 : 0.87;
     const oldZoom = zoomRef.current;
     const unclampedZoom = oldZoom * zoomFactor;
@@ -630,6 +674,11 @@ export default function MapCanvas({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onContextMenu={(event) => {
+        if (generatorRef.current) {
+          event.preventDefault();
+        }
+      }}
       style={{
         cursor: generatorRef.current ? (hoveredOverlayKey ? "pointer" : "grab") : "default",
         overscrollBehavior: "contain",
@@ -1058,4 +1107,157 @@ function formatCoord(value: number, settings: MapSettingsState): string {
 
 function brightenChannel(value: number, amount: number) {
   return Math.min(255, value + amount);
+}
+
+function applyTerrainStyle({
+  biome,
+  red,
+  green,
+  blue,
+  terrain,
+  terrainEstimation,
+  contourLines,
+  biomesAtElevation,
+}: {
+  biome: Biome;
+  red: number;
+  green: number;
+  blue: number;
+  terrain: TerrainSample;
+  terrainEstimation: boolean;
+  contourLines: boolean;
+  biomesAtElevation: boolean;
+}) {
+  let nextRed = red;
+  let nextGreen = green;
+  let nextBlue = blue;
+  const water = isWaterBiome(biome);
+  const altitude = clamp01((terrain.height - 0.46) / 0.54);
+  const depth = clamp01((0.46 - terrain.height) / 0.46);
+
+  if (terrainEstimation) {
+    if (water) {
+      const brightness = 0.72 + terrain.light * 0.18 - depth * 0.22;
+      nextRed *= brightness * 0.9;
+      nextGreen *= brightness * 0.95;
+      nextBlue = nextBlue * (0.92 + terrain.light * 0.18) + depth * 22;
+    } else {
+      const brightness = 0.74 + altitude * 0.2 + terrain.light * 0.32 - terrain.slope * 0.16;
+      nextRed *= brightness;
+      nextGreen *= brightness;
+      nextBlue *= brightness * 0.98;
+
+      const rockyBlend = smoothstep(0.42, 0.88, altitude)
+        * smoothstep(0.1, 0.68, terrain.slope + altitude * 0.32);
+      if (rockyBlend > 0) {
+        const rockTone = isDryBiome(biome)
+          ? { red: 166, green: 145, blue: 112 }
+          : { red: 132, green: 130, blue: 126 };
+        nextRed = mixChannel(nextRed, rockTone.red, rockyBlend * 0.72);
+        nextGreen = mixChannel(nextGreen, rockTone.green, rockyBlend * 0.68);
+        nextBlue = mixChannel(nextBlue, rockTone.blue, rockyBlend * 0.7);
+      }
+
+      if (biomesAtElevation) {
+        const alpineBlend = smoothstep(0.6, 0.94, altitude);
+        if (alpineBlend > 0) {
+          if (isColdBiome(biome)) {
+            nextRed = mixChannel(nextRed, 242, alpineBlend * 0.68);
+            nextGreen = mixChannel(nextGreen, 244, alpineBlend * 0.68);
+            nextBlue = mixChannel(nextBlue, 246, alpineBlend * 0.72);
+          } else if (!isDryBiome(biome)) {
+            nextRed = mixChannel(nextRed, 170, alpineBlend * 0.28);
+            nextGreen = mixChannel(nextGreen, 174, alpineBlend * 0.3);
+            nextBlue = mixChannel(nextBlue, 166, alpineBlend * 0.24);
+          }
+        }
+      }
+    }
+  }
+
+  if (contourLines) {
+    const contourStrength = getContourStrength(terrain.height, terrain.slope, water);
+    const contourShade = 1 - contourStrength * (water ? 0.22 : 0.44);
+    nextRed *= contourShade;
+    nextGreen *= contourShade;
+    nextBlue *= contourShade;
+  }
+
+  return {
+    red: clampChannel(nextRed),
+    green: clampChannel(nextGreen),
+    blue: clampChannel(nextBlue),
+  };
+}
+
+function getContourStrength(height: number, slope: number, water: boolean) {
+  const spacing = water ? 0.04 : 0.023;
+  const wrapped = positiveFraction(height / spacing);
+  const distanceToLine = Math.min(wrapped, 1 - wrapped);
+  const line = 1 - smoothstep(0.022, 0.11, distanceToLine);
+  const terrainWeight = water ? 0.12 + slope * 0.3 : 0.18 + slope * 0.78 + clamp01((height - 0.46) / 0.54) * 0.14;
+  return clamp01(line * terrainWeight);
+}
+
+function isWaterBiome(biome: Biome) {
+  return biome === Biome.River
+    || biome === Biome.FrozenRiver
+    || biome === Biome.Ocean
+    || biome === Biome.DeepOcean
+    || biome === Biome.LukewarmOcean
+    || biome === Biome.WarmOcean
+    || biome === Biome.ColdOcean
+    || biome === Biome.FrozenOcean
+    || biome === Biome.DeepColdOcean
+    || biome === Biome.DeepFrozenOcean
+    || biome === Biome.DeepLukewarmOcean;
+}
+
+function isColdBiome(biome: Biome) {
+  return biome === Biome.SnowyPlains
+    || biome === Biome.SnowyTaiga
+    || biome === Biome.FrozenRiver
+    || biome === Biome.FrozenOcean
+    || biome === Biome.DeepFrozenOcean
+    || biome === Biome.DeepColdOcean
+    || biome === Biome.SnowyBeach
+    || biome === Biome.SnowySlopes
+    || biome === Biome.FrozenPeaks
+    || biome === Biome.JaggedPeaks
+    || biome === Biome.IceSpikes
+    || biome === Biome.Grove;
+}
+
+function isDryBiome(biome: Biome) {
+  return biome === Biome.Desert
+    || biome === Biome.Badlands
+    || biome === Biome.ErodedBadlands
+    || biome === Biome.Savanna
+    || biome === Biome.SavannaPlateau
+    || biome === Biome.Beach;
+}
+
+function clamp01(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(edge0: number, edge1: number, value: number) {
+  if (edge0 === edge1) {
+    return value < edge0 ? 0 : 1;
+  }
+
+  const t = clamp01((value - edge0) / (edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+function positiveFraction(value: number) {
+  return ((value % 1) + 1) % 1;
+}
+
+function mixChannel(from: number, to: number, amount: number) {
+  return from + (to - from) * clamp01(amount);
+}
+
+function clampChannel(value: number) {
+  return Math.max(0, Math.min(255, Math.round(value)));
 }
