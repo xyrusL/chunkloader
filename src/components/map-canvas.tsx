@@ -1,10 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { MapSettingsState } from "@/components/panels/map-settings-panel";
-import { MapIcon } from "@/components/ui/icons";
+import {
+  ClipboardIcon,
+  CompassRoseIcon,
+  LeafIcon,
+  MapIcon,
+  StructureIcon,
+  VillagerHeadIcon,
+} from "@/components/ui/icons";
 import { BiomeGenerator } from "@/lib/biome-generator";
-import { BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
+import { BIOME_PALETTE, BIOME_VALUES, type Biome } from "@/lib/biome-colors";
+import {
+  getPixelsPerBlock,
+  getVisibleStructureMarkers,
+  getWorldBounds,
+  isSlimeChunk,
+  type BiomeOverlayState,
+  type MapViewportState,
+  type MarkerSettingsState,
+} from "@/lib/map-overlays";
 import type { Edition } from "@/lib/minecraft-versions";
 
 interface MapCanvasProps {
@@ -12,6 +28,8 @@ interface MapCanvasProps {
   edition: Edition;
   isGenerating: boolean;
   settings: MapSettingsState;
+  markerSettings: MarkerSettingsState;
+  biomeOverlay: BiomeOverlayState;
   onBiomeHover: (biome: string, x: number, z: number) => void;
   onGenerationComplete: () => void;
 }
@@ -20,6 +38,7 @@ type RenderMode = "generation" | "settled" | "interaction";
 
 interface RenderJob {
   token: number;
+  mode: RenderMode;
   notifyComplete: boolean;
   canvasWidth: number;
   canvasHeight: number;
@@ -38,6 +57,31 @@ interface RenderJob {
   drawAxis: boolean;
   offsetX: number;
   offsetY: number;
+  biomeLabels: VisibleBiomeLabel[];
+  seenBiomeLabels: Set<Biome>;
+}
+
+interface VisibleBiomeLabel {
+  biome: Biome;
+  worldX: number;
+  worldZ: number;
+  color: string;
+}
+
+interface SelectedOverlayCommand {
+  key: string;
+  label: string;
+  worldX: number;
+  worldZ: number;
+  command: string;
+}
+
+interface OverlayTarget extends SelectedOverlayCommand {
+  x: number;
+  y: number;
+  accent: string;
+  swatch?: string;
+  icon: ReactNode;
 }
 
 const TILE_SIZE = 4;
@@ -48,6 +92,8 @@ export default function MapCanvas({
   edition,
   isGenerating,
   settings,
+  markerSettings,
+  biomeOverlay,
   onBiomeHover,
   onGenerationComplete,
 }: MapCanvasProps) {
@@ -58,6 +104,8 @@ export default function MapCanvas({
   const zoomRef = useRef(1);
   const isDraggingRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const downOverlayKeyRef = useRef<string | null>(null);
   const prepareFrameRef = useRef<number>(0);
   const renderFrameRef = useRef<number>(0);
   const settleTimeoutRef = useRef<number>(0);
@@ -70,24 +118,50 @@ export default function MapCanvas({
   const generationCompletePendingRef = useRef(false);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [isRenderingMap, setIsRenderingMap] = useState(false);
+  const [viewport, setViewport] = useState<MapViewportState>({
+    offsetX: 0,
+    offsetY: 0,
+    zoom: 1,
+    sampleScale: 4,
+    canvasWidth: 800,
+    canvasHeight: 600,
+  });
+  const [visibleBiomeLabels, setVisibleBiomeLabels] = useState<VisibleBiomeLabel[]>([]);
+  const [selectedOverlay, setSelectedOverlay] = useState<SelectedOverlayCommand | null>(null);
+  const [copiedCommandKey, setCopiedCommandKey] = useState<string | null>(null);
+  const [hoveredOverlayKey, setHoveredOverlayKey] = useState<string | null>(null);
 
   useEffect(() => {
     lowEndDeviceRef.current = detectLowEndDevice();
   }, []);
 
   useEffect(() => {
-    const resize = () => {
-      if (!containerRef.current) {
-        return;
-      }
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
 
-      const rect = containerRef.current.getBoundingClientRect();
+    const resize = () => {
+      const rect = element.getBoundingClientRect();
       setCanvasSize({ w: Math.max(1, Math.floor(rect.width)), h: Math.max(1, Math.floor(rect.height)) });
     };
 
     resize();
     window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+
+    if (typeof ResizeObserver === "undefined") {
+      return () => {
+        window.removeEventListener("resize", resize);
+      };
+    }
+
+    const observer = new ResizeObserver(resize);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
   useEffect(() => {
@@ -99,6 +173,9 @@ export default function MapCanvas({
     generationCompletePendingRef.current = true;
     offsetRef.current = { x: 0, y: 0 };
     zoomRef.current = 1;
+    setVisibleBiomeLabels([]);
+    setSelectedOverlay(null);
+    setCopiedCommandKey(null);
     scheduleRender("generation", true);
   }, [edition, isGenerating, seed]);
 
@@ -108,7 +185,7 @@ export default function MapCanvas({
     }
 
     scheduleRender("settled");
-  }, [canvasSize, settings]);
+  }, [canvasSize, settings, biomeOverlay]);
 
   useEffect(() => {
     return () => {
@@ -117,6 +194,39 @@ export default function MapCanvas({
       window.clearTimeout(settleTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      if (!generatorRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      applyZoomFromWheel(event.deltaY, event.clientX, event.clientY);
+    };
+
+    element.addEventListener("wheel", handleNativeWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, []);
+
+  function getLiveCanvasSize() {
+    const containerSize = getElementSize(containerRef.current);
+    const canvasSizeFromDom = getCanvasElementSize(canvasRef.current);
+
+    return {
+      w: Math.max(containerSize.w, canvasSizeFromDom.w),
+      h: Math.max(containerSize.h, canvasSizeFromDom.h),
+    };
+  }
 
   function scheduleRender(mode: RenderMode, notifyComplete = false) {
     pendingRenderRef.current = { mode, notifyComplete: pendingRenderRef.current?.notifyComplete || notifyComplete };
@@ -142,7 +252,12 @@ export default function MapCanvas({
 
     cancelAnimationFrame(renderFrameRef.current);
 
-    const { w, h } = canvasSize;
+    const { w, h } = getLiveCanvasSize();
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+
     const zoom = zoomRef.current;
     const blockSize = Math.max(1, TILE_SIZE * zoom);
     const sampleScale = getSampleScale(mode, zoom, lowEndDeviceRef.current);
@@ -157,6 +272,7 @@ export default function MapCanvas({
 
     renderJobRef.current = {
       token,
+      mode,
       notifyComplete,
       canvasWidth: w,
       canvasHeight: h,
@@ -175,9 +291,17 @@ export default function MapCanvas({
       drawAxis: mode === "settled" && zoom >= (lowEndDeviceRef.current ? 2.5 : 1.75),
       offsetX: offsetRef.current.x,
       offsetY: offsetRef.current.y,
+      biomeLabels: [],
+      seenBiomeLabels: new Set(),
     };
 
-    setIsRenderingMap(true);
+    setIsRenderingMap(mode !== "interaction");
+
+    if (mode === "interaction") {
+      continueRender(token);
+      return;
+    }
+
     renderFrameRef.current = requestAnimationFrame(() => continueRender(token));
   }
 
@@ -197,27 +321,69 @@ export default function MapCanvas({
       for (let col = 0; col < job.cols; col++) {
         const sampleX = (job.startCellX + col) * job.sampleScale;
         const biomeIndex = generator.getBiomeIndexFromTile(sampleX, sampleZ, job.sampleScale);
+        const biome = BIOME_VALUES[biomeIndex];
         const paletteOffset = biomeIndex * 4;
         const pixelOffset = (row * job.cols + col) * 4;
+        let red = BIOME_PALETTE[paletteOffset];
+        let green = BIOME_PALETTE[paletteOffset + 1];
+        let blue = BIOME_PALETTE[paletteOffset + 2];
 
-        data[pixelOffset] = BIOME_PALETTE[paletteOffset];
-        data[pixelOffset + 1] = BIOME_PALETTE[paletteOffset + 1];
-        data[pixelOffset + 2] = BIOME_PALETTE[paletteOffset + 2];
+        if (biomeOverlay.highlightBiomes && biomeOverlay.selectedBiomes.has(biome)) {
+          red = brightenChannel(red, 32);
+          green = brightenChannel(green, 26);
+          blue = brightenChannel(blue, 12);
+
+          if (!job.seenBiomeLabels.has(biome)) {
+            const screenX = (job.startCellX + col + 0.5) * job.blockSize + job.offsetX;
+            const screenY = (job.startCellZ + row + 0.5) * job.blockSize + job.offsetY;
+
+            if (
+              screenX > 24
+              && screenX < job.canvasWidth - 24
+              && screenY > 24
+              && screenY < job.canvasHeight - 24
+            ) {
+              job.biomeLabels.push({
+                biome,
+                worldX: sampleX,
+                worldZ: sampleZ,
+                color: `rgb(${red} ${green} ${blue})`,
+              });
+              job.seenBiomeLabels.add(biome);
+            }
+          }
+        }
+
+        data[pixelOffset] = red;
+        data[pixelOffset + 1] = green;
+        data[pixelOffset + 2] = blue;
         data[pixelOffset + 3] = 255;
       }
       job.rowsRendered += 1;
     }
 
-    job.offscreenContext.putImageData(job.imageData, 0, 0);
-    drawFrame(job);
+    const isComplete = job.rowsRendered >= job.rows;
+    if (isComplete) {
+      job.offscreenContext.putImageData(job.imageData, 0, 0);
+      drawFrame(job);
+      setViewport({
+        offsetX: job.offsetX,
+        offsetY: job.offsetY,
+        zoom: job.blockSize / TILE_SIZE,
+        sampleScale: job.sampleScale,
+        canvasWidth: job.canvasWidth,
+        canvasHeight: job.canvasHeight,
+      });
+    }
 
-    if (job.rowsRendered < job.rows) {
+    if (!isComplete) {
       renderFrameRef.current = requestAnimationFrame(() => continueRender(token));
       return;
     }
 
     renderJobRef.current = null;
     setIsRenderingMap(false);
+    setVisibleBiomeLabels(job.biomeLabels);
 
     if (job.notifyComplete || generationCompletePendingRef.current) {
       generationCompletePendingRef.current = false;
@@ -256,7 +422,7 @@ export default function MapCanvas({
       return;
     }
 
-    context.clearRect(0, 0, job.canvasWidth, job.canvasHeight);
+    context.clearRect(0, 0, canvas.width, canvas.height);
     context.imageSmoothingEnabled = false;
     context.drawImage(
       job.offscreenCanvas,
@@ -285,12 +451,29 @@ export default function MapCanvas({
   function handleMouseDown(event: React.MouseEvent) {
     isDraggingRef.current = true;
     lastMouseRef.current = { x: event.clientX, y: event.clientY };
+    dragStartRef.current = { x: event.clientX, y: event.clientY };
+    downOverlayKeyRef.current = getOverlayTargetAtPoint(
+      event.clientX,
+      event.clientY,
+      canvasRef.current,
+      overlayTargets
+    )?.key ?? null;
     if (containerRef.current) {
       containerRef.current.style.cursor = "grabbing";
     }
   }
 
   function handleMouseMove(event: React.MouseEvent) {
+    if (!isDraggingRef.current) {
+      const hoveredTarget = getOverlayTargetAtPoint(
+        event.clientX,
+        event.clientY,
+        canvasRef.current,
+        overlayTargets
+      );
+      setHoveredOverlayKey(hoveredTarget?.key ?? null);
+    }
+
     if (generatorRef.current && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
       const px = event.clientX - rect.left;
@@ -318,24 +501,43 @@ export default function MapCanvas({
   }
 
   function handleMouseUp() {
+    const movedDistance = Math.hypot(
+      lastMouseRef.current.x - dragStartRef.current.x,
+      lastMouseRef.current.y - dragStartRef.current.y
+    );
+    const clickedOverlay = movedDistance < 6
+      ? overlayTargets.find((target) => target.key === downOverlayKeyRef.current)
+      : null;
+
     isDraggingRef.current = false;
     if (containerRef.current) {
-      containerRef.current.style.cursor = "grab";
+      containerRef.current.style.cursor = hoveredOverlayKey ? "pointer" : "grab";
     }
+
+    if (clickedOverlay) {
+      setSelectedOverlay({
+        key: clickedOverlay.key,
+        label: clickedOverlay.label,
+        worldX: clickedOverlay.worldX,
+        worldZ: clickedOverlay.worldZ,
+        command: clickedOverlay.command,
+      });
+    }
+
+    downOverlayKeyRef.current = null;
     queueSettledRender();
   }
 
-  function handleWheel(event: React.WheelEvent) {
-    event.preventDefault();
-    const zoomFactor = event.deltaY < 0 ? 1.15 : 0.87;
+  function applyZoomFromWheel(deltaY: number, clientX: number, clientY: number) {
+    const zoomFactor = deltaY < 0 ? 1.15 : 0.87;
     const oldZoom = zoomRef.current;
     const unclampedZoom = oldZoom * zoomFactor;
     const newZoom = clampZoom(settings.snapZoom ? snapZoomLevel(unclampedZoom) : unclampedZoom);
     const rect = canvasRef.current?.getBoundingClientRect();
 
     if (rect) {
-      const mouseX = event.clientX - rect.left;
-      const mouseY = event.clientY - rect.top;
+      const mouseX = clientX - rect.left;
+      const mouseY = clientY - rect.top;
       offsetRef.current.x = mouseX - (mouseX - offsetRef.current.x) * (newZoom / oldZoom);
       offsetRef.current.y = mouseY - (mouseY - offsetRef.current.y) * (newZoom / oldZoom);
     }
@@ -345,18 +547,146 @@ export default function MapCanvas({
     queueSettledRender();
   }
 
+  async function handleCopyCommand(command: string, key: string) {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(command);
+        setCopiedCommandKey(key);
+        window.setTimeout(() => {
+          setCopiedCommandKey((current) => (current === key ? null : current));
+        }, 1400);
+      }
+    } catch {
+      setCopiedCommandKey(null);
+    }
+  }
+
+  const worldBounds = getWorldBounds(viewport);
+  const pixelsPerBlock = getPixelsPerBlock(viewport);
+  const spawnMarkerPosition = worldToScreen(viewport, 0, 0);
+  const visibleStructureMarkers = seed && markerSettings.structuresEnabled
+    ? getVisibleStructureMarkers(seed, markerSettings.selectedStructures, worldBounds).slice(0, 18)
+    : [];
+  const visibleSlimeChunks = seed && markerSettings.slimeChunks && pixelsPerBlock * 16 >= 10
+    ? getVisibleSlimeChunkRects(seed, worldBounds, viewport)
+    : [];
+  const overlayTargets: OverlayTarget[] = [];
+
+  if (markerSettings.spawnPoint && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, viewport)) {
+    overlayTargets.push({
+      ...createOverlayCommand("spawn", "Spawn Point", 0, 0),
+      x: spawnMarkerPosition.x,
+      y: spawnMarkerPosition.y,
+      accent: "border-red-400/50 bg-black/75 text-white",
+      icon: <CompassRoseIcon className="h-4 w-4 text-red-300" />,
+    });
+  }
+
+  for (const marker of visibleStructureMarkers) {
+    const position = worldToScreen(viewport, marker.x, marker.z);
+    if (!isOverlayVisible(position.x, position.y, viewport)) {
+      continue;
+    }
+
+    overlayTargets.push({
+      ...createOverlayCommand(`${marker.structure.id}:${marker.x}:${marker.z}`, marker.structure.name, marker.x, marker.z),
+      x: position.x,
+      y: position.y,
+      accent: "border-amber-400/35 bg-[#201814]/90 text-amber-50",
+      icon: marker.structure.id === "village"
+        ? <VillagerHeadIcon className="h-4 w-4 text-[#d8b07b]" />
+        : <StructureIcon name={marker.structure.icon} className="h-4 w-4 text-amber-200" />,
+    });
+  }
+
+  if (biomeOverlay.highlightBiomes) {
+    for (const label of visibleBiomeLabels) {
+      const position = worldToScreen(viewport, label.worldX, label.worldZ);
+      if (!isOverlayVisible(position.x, position.y, viewport)) {
+        continue;
+      }
+
+      overlayTargets.push({
+        ...createOverlayCommand(
+          `biome:${label.biome}:${label.worldX}:${label.worldZ}`,
+          `${label.biome} biome`,
+          label.worldX,
+          label.worldZ
+        ),
+        x: position.x,
+        y: position.y,
+        accent: "border-white/15 bg-black/70 text-white",
+        swatch: label.color,
+        icon: <LeafIcon className="h-4 w-4 text-emerald-200" />,
+      });
+    }
+  }
+
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden bg-[#1a1a2e] select-none"
+      className="relative h-full w-full overflow-hidden overscroll-contain bg-[#1a1a2e] select-none"
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
-      onWheel={handleWheel}
-      style={{ cursor: generatorRef.current ? "grab" : "default" }}
+      style={{
+        cursor: generatorRef.current ? (hoveredOverlayKey ? "pointer" : "grab") : "default",
+        overscrollBehavior: "contain",
+      }}
     >
       <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h} className="block h-full w-full" />
+
+      {generatorRef.current && (
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {visibleSlimeChunks.map((chunk) => (
+            <div
+              key={`${chunk.chunkX}:${chunk.chunkZ}`}
+              className="absolute border border-emerald-300/40 bg-emerald-400/10"
+              style={{
+                left: chunk.left,
+                top: chunk.top,
+                width: chunk.size,
+                height: chunk.size,
+              }}
+            />
+          ))}
+
+          {overlayTargets.map((target) => (
+            <MapOverlayBadge
+              key={target.key}
+              x={target.x}
+              y={target.y}
+              label={target.label === "Spawn Point" ? "Spawn" : target.label.replace(/ biome$/, "")}
+              accent={target.accent}
+              swatch={target.swatch}
+              icon={target.icon}
+            />
+          ))}
+
+          {selectedOverlay && (() => {
+            const position = worldToScreen(viewport, selectedOverlay.worldX, selectedOverlay.worldZ);
+            if (!isOverlayVisible(position.x, position.y, viewport)) {
+              return null;
+            }
+
+            return (
+              <CommandPopup
+                x={position.x}
+                y={position.y + 18}
+                label={selectedOverlay.label}
+                command={selectedOverlay.command}
+                copied={copiedCommandKey === selectedOverlay.key}
+                onClose={() => {
+                  setSelectedOverlay(null);
+                  setCopiedCommandKey(null);
+                }}
+                onCopy={() => handleCopyCommand(selectedOverlay.command, selectedOverlay.key)}
+              />
+            );
+          })()}
+        </div>
+      )}
 
       {!generatorRef.current && (
         <div className="absolute inset-0 flex items-center justify-center">
@@ -379,6 +709,203 @@ export default function MapCanvas({
       )}
     </div>
   );
+}
+
+function MapOverlayBadge({
+  x,
+  y,
+  label,
+  icon,
+  accent,
+  swatch,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  icon: ReactNode;
+  accent: string;
+  swatch?: string;
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute -translate-x-1/2 -translate-y-full"
+      style={{ left: x, top: y }}
+    >
+      <div className={`flex items-center gap-2 rounded-sm border px-2 py-1 shadow-[0_3px_0_rgba(0,0,0,0.4)] ${accent}`}>
+        <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-black/35">
+          {icon}
+        </span>
+        {swatch && (
+          <span
+            className="h-3 w-3 rounded-[2px] border border-white/20"
+            style={{ backgroundColor: swatch }}
+          />
+        )}
+        <span className="max-w-[12rem] truncate font-mono text-[11px] uppercase tracking-[0.08em]">
+          {label}
+        </span>
+      </div>
+      <div className="mx-auto h-2 w-px bg-white/30" />
+    </div>
+  );
+}
+
+function CommandPopup({
+  x,
+  y,
+  label,
+  command,
+  copied,
+  onCopy,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  command: string;
+  copied: boolean;
+  onCopy: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="pointer-events-auto absolute z-10 w-64 -translate-x-1/2"
+      style={{ left: x, top: y }}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="rounded-md border border-white/10 bg-[#090c16]/95 p-3 shadow-[0_14px_32px_rgba(0,0,0,0.45)] backdrop-blur">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-emerald-300/80">Command ready</p>
+            <p className="text-sm font-medium text-white">{label}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-white/10 px-1.5 py-0.5 text-xs text-gray-400 hover:border-white/20 hover:text-white"
+          >
+            X
+          </button>
+        </div>
+        <div className="flex items-center gap-2 rounded border border-white/10 bg-black/30 px-2 py-2">
+          <code className="min-w-0 flex-1 truncate text-xs text-emerald-100">{command}</code>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="flex h-8 w-8 items-center justify-center rounded border border-white/10 bg-white/5 text-gray-300 hover:border-emerald-300/40 hover:text-white"
+            aria-label="Copy teleport command"
+          >
+            <ClipboardIcon className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-gray-400">{copied ? "Copied." : "Click copy to use this teleport command."}</p>
+      </div>
+    </div>
+  );
+}
+
+function worldToScreen(viewport: MapViewportState, worldX: number, worldZ: number) {
+  const pixelsPerBlock = getPixelsPerBlock(viewport);
+  return {
+    x: worldX * pixelsPerBlock + viewport.offsetX,
+    y: worldZ * pixelsPerBlock + viewport.offsetY,
+  };
+}
+
+function isOverlayVisible(x: number, y: number, viewport: MapViewportState) {
+  return x >= -48 && x <= viewport.canvasWidth + 48 && y >= -48 && y <= viewport.canvasHeight + 48;
+}
+
+function getVisibleSlimeChunkRects(seed: string, bounds: ReturnType<typeof getWorldBounds>, viewport: MapViewportState) {
+  const chunkSizePixels = 16 * getPixelsPerBlock(viewport);
+  const chunkMinX = Math.floor(bounds.minX / 16);
+  const chunkMaxX = Math.ceil(bounds.maxX / 16);
+  const chunkMinZ = Math.floor(bounds.minZ / 16);
+  const chunkMaxZ = Math.ceil(bounds.maxZ / 16);
+  const rects: Array<{ chunkX: number; chunkZ: number; left: number; top: number; size: number }> = [];
+
+  for (let chunkZ = chunkMinZ; chunkZ <= chunkMaxZ; chunkZ++) {
+    for (let chunkX = chunkMinX; chunkX <= chunkMaxX; chunkX++) {
+      if (!isSlimeChunk(seed, chunkX, chunkZ)) {
+        continue;
+      }
+
+      const position = worldToScreen(viewport, chunkX * 16, chunkZ * 16);
+      rects.push({
+        chunkX,
+        chunkZ,
+        left: position.x,
+        top: position.y,
+        size: chunkSizePixels,
+      });
+    }
+  }
+
+  return rects;
+}
+
+function createOverlayCommand(key: string, label: string, worldX: number, worldZ: number): SelectedOverlayCommand {
+  return {
+    key,
+    label,
+    worldX,
+    worldZ,
+    command: `/tp @s ${Math.round(worldX)} ~ ${Math.round(worldZ)}`,
+  };
+}
+
+function getOverlayTargetAtPoint(
+  clientX: number,
+  clientY: number,
+  canvas: HTMLCanvasElement | null,
+  targets: OverlayTarget[]
+) {
+  if (!canvas) {
+    return null;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+
+  for (let index = targets.length - 1; index >= 0; index--) {
+    const target = targets[index];
+    const width = Math.min(192, 40 + target.label.length * 8 + (target.swatch ? 18 : 0));
+    const left = target.x - width / 2;
+    const top = target.y - 34;
+    const height = 34;
+
+    if (x >= left && x <= left + width && y >= top && y <= top + height) {
+      return target;
+    }
+  }
+
+  return null;
+}
+
+function getElementSize(element: HTMLElement | null) {
+  if (!element) {
+    return { w: 1, h: 1 };
+  }
+
+  const rect = element.getBoundingClientRect();
+  return {
+    w: Math.max(1, Math.floor(rect.width || element.clientWidth || 1)),
+    h: Math.max(1, Math.floor(rect.height || element.clientHeight || 1)),
+  };
+}
+
+function getCanvasElementSize(canvas: HTMLCanvasElement | null) {
+  if (!canvas) {
+    return { w: 1, h: 1 };
+  }
+
+  const rect = canvas.getBoundingClientRect();
+  return {
+    w: Math.max(1, Math.floor(rect.width || canvas.clientWidth || 1)),
+    h: Math.max(1, Math.floor(rect.height || canvas.clientHeight || 1)),
+  };
 }
 
 function drawGrid(context: CanvasRenderingContext2D, job: RenderJob) {
@@ -527,4 +1054,8 @@ function formatCoord(value: number, settings: MapSettingsState): string {
   }
 
   return String(Math.round(value));
+}
+
+function brightenChannel(value: number, amount: number) {
+  return Math.min(255, value + amount);
 }
