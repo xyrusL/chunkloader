@@ -13,6 +13,9 @@ Generate and explore Minecraft biome maps from any seed, right in your browser.
 - ⚡ **Progressive renderer** — Cached biome tiles and chunked redraws keep navigation responsive
 - 🎨 **50+ biomes** — Accurate Minecraft biome colors (Plains, Ocean, Desert, Jungle, Taiga, and many more)
 - 📍 **Biome info on hover** — Shows biome name and world coordinates (x, z)
+- 🧭 **Marker overlays** — Toggle spawn, slime chunks, and structure previews directly from the UI
+- 🏷️ **Map labels and teleport copy** — Click spawn, structure, and biome labels to copy a ready-to-use `/tp` command
+- 🧱 **Minecraft-style icons** — Structure pickers and map badges use pixel-inspired Minecraft art instead of generic outline icons
 - 🎲 **Random seed** — One-click random seed generation
 - 🌙 **Dark theme** — Easy on the eyes
 
@@ -108,6 +111,12 @@ The renderer is optimized around a few low-cost primitives:
 
 This keeps map regeneration smoother on lower-end devices and mobile browsers, where long main-thread tasks are the main source of visible lag.
 
+## Overlay Notes
+
+- Structure and spawn labels are rendered from deterministic preview data so the map stays interactive without a heavy backend dependency.
+- Selected biome overlays brighten matching terrain and can surface biome labels directly on the map.
+- Teleport popups copy commands in `/tp @s X ~ Z` format for fast in-game testing.
+
 ## Open-Source References
 
 Useful repositories if you want to keep pushing this engine further:
@@ -122,12 +131,12 @@ If you vendor code from any of these, keep the original license text and attribu
 
 ## Roadmap
 
-- [ ] Map Settings panel
-- [ ] Seed Finder
-- [ ] Markers / Points of Interest
-- [ ] Biome list panel
-- [ ] Structure generation (Villages, Temples, etc.)
-- [ ] cubiomes WASM integration for exact seed accuracy
+- [x] Map Settings panel
+- [x] Seed Finder
+- [x] Markers / Points of Interest
+- [x] Biome list panel
+- [x] Structure generation previews and map labels
+- [ ] Exact structure placement via cubiomes WASM
 - [ ] Nether and End dimension support
 
 ## License

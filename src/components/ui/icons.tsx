@@ -73,6 +73,31 @@ export function MapIcon(props: IconProps) {
   );
 }
 
+export function CompassRoseIcon(props: IconProps) {
+  return (
+    <svg aria-hidden="true" className={props.className ?? "h-5 w-5"} viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="1" width="14" height="14" rx="3" fill="#2A2A2A" stroke="#9A9A9A" />
+      <circle cx="8" cy="8" r="4.5" fill="#111111" stroke="#D0D0D0" />
+      <path d="m8 3 2 4-2 1-2-1 2-4Z" fill="#E74343" />
+      <path d="m8 13-2-4 2-1 2 1-2 4Z" fill="#E5E7EB" />
+      <circle cx="8" cy="8" r="1.2" fill="#F9FAFB" />
+    </svg>
+  );
+}
+
+export function VillagerHeadIcon(props: IconProps) {
+  return (
+    <svg aria-hidden="true" className={props.className ?? "h-5 w-5"} viewBox="0 0 16 16" fill="none">
+      <rect x="2" y="1.5" width="12" height="13" rx="2" fill="#8F6A46" stroke="#5E4630" />
+      <rect x="4" y="4" width="3" height="3" fill="#88B04B" />
+      <rect x="9" y="4" width="3" height="3" fill="#88B04B" />
+      <rect x="5" y="9" width="6" height="2" fill="#65452E" />
+      <rect x="6.5" y="6" width="3" height="5" rx="1" fill="#C49A6C" />
+      <rect x="4" y="2" width="8" height="2" fill="#B98C5E" />
+    </svg>
+  );
+}
+
 export function GlobeIcon(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -320,74 +345,261 @@ export type StructureIconName =
 
 export function StructureIcon({ name, className = "h-4 w-4" }: { name: StructureIconName; className?: string }) {
   const icons: Record<StructureIconName, ReactElement> = {
-    village: <HomeIcon className={className} />,
-    ocean_monument: <TempleIcon className={className} />,
-    shipwreck: <ShipIcon className={className} />,
-    mineshaft: <PickaxeIcon className={className} />,
-    ancient_city: <CityIcon className={className} />,
-    amethyst_geode: <GemIcon className={className} />,
-    woodland_mansion: <MansionIcon className={className} />,
-    desert_pyramid: <PyramidIcon className={className} />,
-    jungle_temple: <TempleIcon className={className} />,
-    igloo: <SnowflakeIcon className={className} />,
-    pillager_outpost: <TowerIcon className={className} />,
-    ruined_portal: <PortalIcon className={className} />,
-    buried_treasure: <ChestIcon className={className} />,
-    swamp_hut: <HutIcon className={className} />,
-    stronghold: <FortIcon className={className} />,
-    ocean_ruin: <RuinsIcon className={className} />,
-    trail_ruin: <MapIcon className={className} />,
-    trial_chambers: <SwordsIcon className={className} />,
+    village: <VillagerHeadIcon className={className} />,
+    ocean_monument: <OceanMonumentPixelIcon className={className} />,
+    shipwreck: <ShipwreckPixelIcon className={className} />,
+    mineshaft: <MineshaftPixelIcon className={className} />,
+    ancient_city: <AncientCityPixelIcon className={className} />,
+    amethyst_geode: <AmethystGeodePixelIcon className={className} />,
+    woodland_mansion: <WoodlandMansionPixelIcon className={className} />,
+    desert_pyramid: <DesertPyramidPixelIcon className={className} />,
+    jungle_temple: <JungleTemplePixelIcon className={className} />,
+    igloo: <IglooPixelIcon className={className} />,
+    pillager_outpost: <PillagerOutpostPixelIcon className={className} />,
+    ruined_portal: <RuinedPortalPixelIcon className={className} />,
+    buried_treasure: <BuriedTreasurePixelIcon className={className} />,
+    swamp_hut: <SwampHutPixelIcon className={className} />,
+    stronghold: <StrongholdPixelIcon className={className} />,
+    ocean_ruin: <OceanRuinPixelIcon className={className} />,
+    trail_ruin: <TrailRuinPixelIcon className={className} />,
+    trial_chambers: <TrialChambersPixelIcon className={className} />,
   };
 
   return icons[name];
 }
 
-function HomeIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M4 11 12 5l8 6" /><path d="M6 10v9h12v-9" /></IconBase>;
+function PixelIconBase({ className = "h-4 w-4", viewBox = "0 0 16 16", children }: IconBaseProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      viewBox={viewBox}
+      fill="none"
+      shapeRendering="crispEdges"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {children}
+    </svg>
+  );
 }
-function TempleIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M4 9h16" /><path d="M6 9v8M10 9v8M14 9v8M18 9v8" /><path d="M3 19h18M12 4l8 4H4l8-4Z" /></IconBase>;
+
+function OceanMonumentPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="1" y="3" width="14" height="11" rx="1" fill="#7A8E8A" />
+      <rect x="3" y="2" width="10" height="2" fill="#C98372" />
+      <rect x="4" y="5" width="2" height="7" fill="#D5E3DB" />
+      <rect x="7" y="5" width="2" height="7" fill="#D5E3DB" />
+      <rect x="10" y="5" width="2" height="7" fill="#D5E3DB" />
+      <rect x="2" y="13" width="12" height="1" fill="#D5E3DB" />
+      <rect x="6" y="7" width="4" height="3" fill="#6CCED8" />
+    </PixelIconBase>
+  );
 }
-function ShipIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M5 16h14l-2 3H7l-2-3Z" /><path d="M10 16V6l5 3v7" /><path d="M10 6H7" /></IconBase>;
+
+function ShipwreckPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="6" y="2" width="1" height="7" fill="#F2F2F2" />
+      <rect x="7" y="3" width="4" height="3" fill="#F2F2F2" />
+      <rect x="3" y="10" width="10" height="3" fill="#7A4B21" />
+      <rect x="2" y="9" width="12" height="1" fill="#A56B31" />
+      <rect x="4" y="13" width="8" height="1" fill="#5A3415" />
+      <rect x="5" y="8" width="1" height="1" fill="#A56B31" />
+      <rect x="10" y="8" width="1" height="1" fill="#A56B31" />
+    </PixelIconBase>
+  );
 }
-function PickaxeIcon(props: IconProps) {
-  return <IconBase {...props}><path d="m5 19 6-6" /><path d="m9 5 6 2 3 4-6-2-3-4Z" /><path d="m4 18 2 2" /></IconBase>;
+
+function MineshaftPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="1" width="12" height="14" rx="1" fill="#B9905C" />
+      <rect x="3" y="2" width="10" height="12" fill="#6D4A2A" />
+      <rect x="4" y="4" width="8" height="1" fill="#D8C6A0" />
+      <rect x="4" y="7" width="8" height="1" fill="#D8C6A0" />
+      <rect x="4" y="10" width="8" height="1" fill="#D8C6A0" />
+      <rect x="5" y="3" width="1" height="10" fill="#C7B08B" />
+      <rect x="10" y="3" width="1" height="10" fill="#C7B08B" />
+    </PixelIconBase>
+  );
 }
-function CityIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M5 19V9l4-2v12" /><path d="M11 19V5l4 2v12" /><path d="M17 19v-8l2 1v7" /></IconBase>;
+
+function AncientCityPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="2" width="12" height="12" rx="1" fill="#233447" />
+      <rect x="4" y="4" width="8" height="8" fill="#0F1621" />
+      <rect x="6" y="3" width="4" height="2" fill="#61D8FF" />
+      <rect x="5" y="6" width="6" height="4" fill="#47A6E5" />
+      <rect x="7" y="5" width="2" height="6" fill="#A9F1FF" />
+      <rect x="6" y="10" width="4" height="2" fill="#123C53" />
+    </PixelIconBase>
+  );
 }
-function GemIcon(props: IconProps) {
-  return <IconBase {...props}><path d="m7 7 2-3h6l2 3-5 12-5-12Z" /><path d="M7 7h10" /><path d="m9 4 3 3 3-3" /></IconBase>;
+
+function AmethystGeodePixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="5" y="2" width="6" height="2" fill="#CFA7FF" />
+      <rect x="4" y="4" width="8" height="3" fill="#B277FF" />
+      <rect x="3" y="7" width="10" height="3" fill="#8E53D6" />
+      <rect x="4" y="10" width="8" height="3" fill="#D9C4FF" />
+      <rect x="6" y="4" width="1" height="7" fill="#F6ECFF" />
+      <rect x="9" y="5" width="1" height="6" fill="#F6ECFF" />
+    </PixelIconBase>
+  );
 }
-function MansionIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M4 19V9l8-4 8 4v10" /><path d="M8 19v-5h8v5" /></IconBase>;
+
+function WoodlandMansionPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="5" width="12" height="9" fill="#5E4126" />
+      <rect x="4" y="3" width="8" height="3" fill="#A67C52" />
+      <rect x="3" y="6" width="10" height="1" fill="#D8C6A0" />
+      <rect x="4" y="8" width="3" height="3" fill="#F4E7C5" />
+      <rect x="9" y="8" width="3" height="3" fill="#F4E7C5" />
+      <rect x="7" y="9" width="2" height="5" fill="#3B2614" />
+    </PixelIconBase>
+  );
 }
-function PyramidIcon(props: IconProps) {
-  return <IconBase {...props}><path d="m4 19 8-12 8 12H4Z" /><path d="m9 19 3-5 3 5" /></IconBase>;
+
+function DesertPyramidPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="4" y="2" width="8" height="2" fill="#E8D7B5" />
+      <rect x="3" y="4" width="10" height="2" fill="#E3D0A6" />
+      <rect x="2" y="6" width="12" height="3" fill="#DCC58F" />
+      <rect x="1" y="9" width="14" height="4" fill="#D1B977" />
+      <rect x="7" y="7" width="2" height="2" fill="#C98344" />
+      <rect x="6" y="10" width="4" height="3" fill="#F1E4C8" />
+    </PixelIconBase>
+  );
 }
-function SnowflakeIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9" /></IconBase>;
+
+function JungleTemplePixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="3" width="12" height="11" fill="#6C7F58" />
+      <rect x="3" y="4" width="10" height="9" fill="#8BA172" />
+      <rect x="5" y="6" width="6" height="2" fill="#B3C39A" />
+      <rect x="6" y="8" width="4" height="5" fill="#738861" />
+      <rect x="2" y="2" width="12" height="1" fill="#BCC7A7" />
+      <rect x="1" y="1" width="2" height="2" fill="#6DA84B" />
+      <rect x="13" y="2" width="2" height="2" fill="#5A8B3B" />
+    </PixelIconBase>
+  );
 }
-function TowerIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M9 20h6l-1-12h-4L9 20Z" /><path d="M8 8h8l-2-4h-4l-2 4Z" /></IconBase>;
+
+function IglooPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="4" y="3" width="8" height="2" fill="#FFFFFF" />
+      <rect x="3" y="5" width="10" height="3" fill="#F2F7FF" />
+      <rect x="2" y="8" width="12" height="4" fill="#E4EEFF" />
+      <rect x="6" y="9" width="4" height="3" fill="#B9D4FF" />
+      <rect x="11" y="9" width="2" height="3" fill="#D8E7FF" />
+    </PixelIconBase>
+  );
 }
-function PortalIcon(props: IconProps) {
-  return <IconBase {...props}><rect x="7" y="4" width="10" height="16" rx="2" /><path d="M10 8h4M10 12h4M10 16h4" /></IconBase>;
+
+function PillagerOutpostPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="3" y="1" width="10" height="14" fill="#3B2818" />
+      <rect x="4" y="2" width="8" height="2" fill="#6E4A29" />
+      <rect x="4" y="5" width="8" height="1" fill="#90643B" />
+      <rect x="5" y="7" width="6" height="1" fill="#7A532F" />
+      <rect x="5" y="9" width="6" height="1" fill="#7A532F" />
+      <rect x="5" y="11" width="6" height="1" fill="#7A532F" />
+      <rect x="6" y="13" width="4" height="1" fill="#B48C61" />
+    </PixelIconBase>
+  );
 }
-function ChestIcon(props: IconProps) {
-  return <IconBase {...props}><rect x="4" y="8" width="16" height="10" rx="2" /><path d="M4 11h16M12 11v7" /></IconBase>;
+
+function RuinedPortalPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="3" y="2" width="10" height="12" fill="#6E6E6E" />
+      <rect x="4" y="3" width="8" height="10" fill="#A05CFF" />
+      <rect x="2" y="1" width="2" height="4" fill="#4A4A4A" />
+      <rect x="12" y="11" width="2" height="4" fill="#4A4A4A" />
+      <rect x="2" y="12" width="3" height="2" fill="#3F8E4C" />
+      <rect x="5" y="12" width="2" height="1" fill="#57B55F" />
+    </PixelIconBase>
+  );
 }
-function HutIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M5 19h14l-2-8H7l-2 8Z" /><path d="m4 11 8-6 8 6" /></IconBase>;
+
+function BuriedTreasurePixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="4" width="12" height="9" rx="1" fill="#8B551C" />
+      <rect x="2" y="4" width="12" height="2" fill="#C7822B" />
+      <rect x="7" y="6" width="2" height="4" fill="#D9C27A" />
+      <rect x="3" y="6" width="10" height="1" fill="#5B3612" />
+      <rect x="4" y="10" width="8" height="2" fill="#9F5F1E" />
+    </PixelIconBase>
+  );
 }
-function FortIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M4 19V7h16v12" /><path d="M8 7V4h2v3M14 7V4h2v3M9 19v-5h6v5" /></IconBase>;
+
+function SwampHutPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="3" y="5" width="10" height="7" fill="#8C8C8C" />
+      <rect x="4" y="3" width="8" height="2" fill="#D7E16E" />
+      <rect x="5" y="7" width="2" height="2" fill="#F0F0F0" />
+      <rect x="9" y="7" width="2" height="2" fill="#F0F0F0" />
+      <rect x="7" y="9" width="2" height="3" fill="#2F2015" />
+      <rect x="3" y="12" width="1" height="2" fill="#5A4426" />
+      <rect x="12" y="12" width="1" height="2" fill="#5A4426" />
+    </PixelIconBase>
+  );
 }
-function RuinsIcon(props: IconProps) {
-  return <IconBase {...props}><path d="M5 19h14" /><path d="M7 19v-6l3-2v8" /><path d="M12 19V9l5 3v7" /></IconBase>;
+
+function StrongholdPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="2" width="12" height="12" rx="6" fill="#D7D7D7" />
+      <rect x="3" y="3" width="10" height="10" rx="5" fill="#294B2A" />
+      <rect x="5" y="5" width="6" height="6" rx="3" fill="#7AE16F" />
+      <rect x="6" y="6" width="4" height="4" rx="2" fill="#101418" />
+      <rect x="7" y="7" width="2" height="2" fill="#A2F69D" />
+    </PixelIconBase>
+  );
 }
-function SwordsIcon(props: IconProps) {
-  return <IconBase {...props}><path d="m8 6 8 8" /><path d="m16 6-8 8" /><path d="m7 5 2 2M15 5l2 2M7 17l2-2M15 17l2-2" /></IconBase>;
+
+function OceanRuinPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="2" width="12" height="12" fill="#DDE5E8" />
+      <rect x="3" y="3" width="10" height="10" fill="#89A8A4" />
+      <rect x="4" y="5" width="3" height="3" fill="#62E59E" />
+      <rect x="8" y="5" width="4" height="3" fill="#8AF0C9" />
+      <rect x="4" y="9" width="8" height="2" fill="#476965" />
+      <rect x="6" y="11" width="4" height="1" fill="#2B4341" />
+    </PixelIconBase>
+  );
+}
+
+function TrailRuinPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="10" width="9" height="3" rx="1" transform="rotate(-30 2 10)" fill="#EED7C0" />
+      <rect x="3" y="9" width="8" height="1" transform="rotate(-30 3 9)" fill="#F7EBDD" />
+      <rect x="8" y="6" width="2" height="5" transform="rotate(-30 8 6)" fill="#A46B41" />
+    </PixelIconBase>
+  );
+}
+
+function TrialChambersPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="2" width="12" height="12" fill="#394C5A" />
+      <rect x="3" y="3" width="10" height="10" fill="#D7D7D7" />
+      <rect x="4" y="4" width="8" height="8" fill="#202E38" />
+      <rect x="6" y="6" width="4" height="4" fill="#345E7B" />
+      <rect x="7" y="7" width="2" height="2" fill="#D28F3F" />
+      <rect x="4" y="11" width="8" height="1" fill="#A6B6BF" />
+    </PixelIconBase>
+  );
 }
