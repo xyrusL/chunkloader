@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   AppLogoIcon,
@@ -98,15 +99,15 @@ export default function TopBar({
   return (
     <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-white/5 bg-[var(--theme-bg-header)] px-3 py-2.5 sm:px-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        {/* Logo */}
-        <div className="flex shrink-0 items-center gap-2.5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.03] text-[var(--theme-accent)]">
+        {/* Logo — links back to landing page */}
+        <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.03] text-[var(--theme-accent)] transition-transform duration-300 group-hover:scale-110">
             <AppLogoIcon className="h-5 w-5" />
           </span>
           <h1 className="text-lg font-bold tracking-tight text-[var(--theme-text-primary)]">
             Chunk<span className="text-[var(--theme-accent)]">Loader</span>
           </h1>
-        </div>
+        </Link>
 
         {/* Divider */}
         <div className="hidden h-6 w-px bg-white/10 sm:block" />

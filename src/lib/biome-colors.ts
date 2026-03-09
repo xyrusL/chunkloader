@@ -81,89 +81,89 @@ export interface BiomeColor {
   b: number;
 }
 
-/** Biome color map — colors that look great on a dark-themed seed map */
+/** Biome color map — natural topographic hues matching Minecraft's biome aesthetic */
 export const BIOME_COLORS: Record<Biome, BiomeColor> = {
-  // Oceans
-  [Biome.DeepOcean]: { r: 0, g: 0, b: 112 },
-  [Biome.Ocean]: { r: 0, g: 0, b: 160 },
-  [Biome.LukewarmOcean]: { r: 0, g: 76, b: 178 },
-  [Biome.WarmOcean]: { r: 0, g: 110, b: 200 },
-  [Biome.ColdOcean]: { r: 32, g: 32, b: 140 },
-  [Biome.FrozenOcean]: { r: 112, g: 112, b: 214 },
-  [Biome.DeepColdOcean]: { r: 20, g: 20, b: 100 },
-  [Biome.DeepFrozenOcean]: { r: 80, g: 80, b: 180 },
-  [Biome.DeepLukewarmOcean]: { r: 0, g: 56, b: 130 },
+  // Oceans — steel blue tones, deeper = darker
+  [Biome.DeepOcean]:        { r: 18,  g: 52,  b: 120 },
+  [Biome.Ocean]:            { r: 32,  g: 82,  b: 154 },
+  [Biome.LukewarmOcean]:   { r: 20,  g: 96,  b: 168 },
+  [Biome.WarmOcean]:       { r: 24,  g: 116, b: 190 },
+  [Biome.ColdOcean]:       { r: 28,  g: 58,  b: 130 },
+  [Biome.FrozenOcean]:     { r: 108, g: 128, b: 196 },
+  [Biome.DeepColdOcean]:   { r: 14,  g: 38,  b: 100 },
+  [Biome.DeepFrozenOcean]: { r: 68,  g: 86,  b: 164 },
+  [Biome.DeepLukewarmOcean]: { r: 14, g: 60, b: 128 },
 
-  // Plains & Meadows
-  [Biome.Plains]: { r: 141, g: 179, b: 96 },
-  [Biome.SunflowerPlains]: { r: 181, g: 199, b: 46 },
-  [Biome.Meadow]: { r: 130, g: 194, b: 100 },
-  [Biome.CherryGrove]: { r: 224, g: 160, b: 186 },
+  // Plains & Meadows — muted grass greens
+  [Biome.Plains]:          { r: 116, g: 154, b: 72  },
+  [Biome.SunflowerPlains]: { r: 162, g: 176, b: 52  },
+  [Biome.Meadow]:          { r: 112, g: 172, b: 82  },
+  [Biome.CherryGrove]:     { r: 200, g: 138, b: 168 },
 
-  // Forests
-  [Biome.Forest]: { r: 5, g: 102, b: 33 },
-  [Biome.FlowerForest]: { r: 45, g: 142, b: 73 },
-  [Biome.BirchForest]: { r: 48, g: 116, b: 68 },
-  [Biome.DarkForest]: { r: 64, g: 81, b: 26 },
+  // Forests — dark, rich greens
+  [Biome.Forest]:           { r: 34,  g: 85,  b: 28  },
+  [Biome.FlowerForest]:     { r: 48,  g: 122, b: 58  },
+  [Biome.BirchForest]:      { r: 44,  g: 102, b: 58  },
+  [Biome.DarkForest]:       { r: 48,  g: 62,  b: 18  },
 
-  // Taiga
-  [Biome.Taiga]: { r: 11, g: 102, b: 89 },
-  [Biome.OldGrowthSpruceTaiga]: { r: 22, g: 77, b: 58 },
-  [Biome.OldGrowthPineTaiga]: { r: 32, g: 87, b: 48 },
-  [Biome.SnowyTaiga]: { r: 49, g: 85, b: 74 },
+  // Taiga — deep blue-greens
+  [Biome.Taiga]:                  { r: 12,  g: 90,  b: 78  },
+  [Biome.OldGrowthSpruceTaiga]:  { r: 18,  g: 64,  b: 48  },
+  [Biome.OldGrowthPineTaiga]:    { r: 26,  g: 72,  b: 38  },
+  [Biome.SnowyTaiga]:            { r: 42,  g: 72,  b: 64  },
 
-  // Jungle
-  [Biome.Jungle]: { r: 83, g: 123, b: 9 },
-  [Biome.SparseJungle]: { r: 98, g: 139, b: 23 },
-  [Biome.BambooJungle]: { r: 118, g: 142, b: 20 },
+  // Jungle — deep tropical greens
+  [Biome.Jungle]:       { r: 48,  g: 96,  b: 12  },
+  [Biome.SparseJungle]: { r: 62,  g: 112, b: 20  },
+  [Biome.BambooJungle]: { r: 80,  g: 118, b: 18  },
 
-  // Swamp
-  [Biome.Swamp]: { r: 7, g: 79, b: 56 },
-  [Biome.MangroveSwamp]: { r: 36, g: 77, b: 48 },
+  // Swamp — muddy dark greens
+  [Biome.Swamp]:        { r: 40,  g: 68,  b: 38  },
+  [Biome.MangroveSwamp]:{ r: 34,  g: 64,  b: 42  },
 
-  // Desert & Dry
-  [Biome.Desert]: { r: 250, g: 148, b: 24 },
-  [Biome.Savanna]: { r: 189, g: 178, b: 95 },
-  [Biome.SavannaPlateau]: { r: 167, g: 157, b: 100 },
-  [Biome.Badlands]: { r: 217, g: 69, b: 21 },
-  [Biome.ErodedBadlands]: { r: 255, g: 109, b: 61 },
+  // Desert & Dry — sandy muted tones
+  [Biome.Desert]:          { r: 210, g: 175, b: 100 },
+  [Biome.Savanna]:         { r: 163, g: 158, b: 82  },
+  [Biome.SavannaPlateau]:  { r: 148, g: 140, b: 78  },
+  [Biome.Badlands]:        { r: 178, g: 85,  b: 38  },
+  [Biome.ErodedBadlands]:  { r: 204, g: 108, b: 58  },
 
-  // Shores & Rivers
-  [Biome.Beach]: { r: 250, g: 222, b: 85 },
-  [Biome.SnowyBeach]: { r: 219, g: 220, b: 194 },
-  [Biome.StonyShore]: { r: 162, g: 162, b: 132 },
-  [Biome.River]: { r: 0, g: 0, b: 255 },
-  [Biome.FrozenRiver]: { r: 160, g: 160, b: 255 },
+  // Shores & Rivers — natural water/sand tones
+  [Biome.Beach]:       { r: 220, g: 198, b: 112 },
+  [Biome.SnowyBeach]:  { r: 196, g: 200, b: 178 },
+  [Biome.StonyShore]:  { r: 138, g: 136, b: 114 },
+  [Biome.River]:       { r: 60,  g: 110, b: 200 },
+  [Biome.FrozenRiver]: { r: 148, g: 162, b: 228 },
 
-  // Cold & Peaks
-  [Biome.SnowyPlains]: { r: 255, g: 254, b: 255 },
-  [Biome.IceSpikes]: { r: 180, g: 220, b: 255 },
-  [Biome.SnowySlopes]: { r: 210, g: 230, b: 240 },
-  [Biome.FrozenPeaks]: { r: 200, g: 210, b: 230 },
-  [Biome.JaggedPeaks]: { r: 190, g: 196, b: 194 },
-  [Biome.StonyPeaks]: { r: 140, g: 140, b: 130 },
-  [Biome.Grove]: { r: 80, g: 120, b: 90 },
-  [Biome.WindsweptHills]: { r: 96, g: 96, b: 96 },
-  [Biome.WindsweptForest]: { r: 80, g: 112, b: 80 },
-  [Biome.WindsweptGravelly]: { r: 120, g: 120, b: 120 },
+  // Cold & Peaks — icy whites, slate grays
+  [Biome.SnowyPlains]:       { r: 230, g: 238, b: 245 },
+  [Biome.IceSpikes]:         { r: 172, g: 208, b: 240 },
+  [Biome.SnowySlopes]:       { r: 196, g: 214, b: 228 },
+  [Biome.FrozenPeaks]:       { r: 186, g: 198, b: 218 },
+  [Biome.JaggedPeaks]:       { r: 168, g: 176, b: 178 },
+  [Biome.StonyPeaks]:        { r: 126, g: 124, b: 118 },
+  [Biome.Grove]:             { r: 70,  g: 106, b: 80  },
+  [Biome.WindsweptHills]:    { r: 82,  g: 86,  b: 84  },
+  [Biome.WindsweptForest]:   { r: 68,  g: 96,  b: 70  },
+  [Biome.WindsweptGravelly]: { r: 108, g: 108, b: 104 },
 
-  // Mushroom
-  [Biome.MushroomFields]: { r: 255, g: 0, b: 255 },
+  // Mushroom — natural muted purple
+  [Biome.MushroomFields]: { r: 182, g: 68,  b: 162 },
 
   // Cave (surface representation)
-  [Biome.DeepDark]: { r: 10, g: 20, b: 30 },
-  [Biome.LushCaves]: { r: 50, g: 120, b: 50 },
-  [Biome.DripstoneCaves]: { r: 120, g: 100, b: 70 },
+  [Biome.DeepDark]:       { r: 10,  g: 18,  b: 28  },
+  [Biome.LushCaves]:      { r: 44,  g: 106, b: 44  },
+  [Biome.DripstoneCaves]: { r: 108, g: 90,  b: 62  },
 
-  // Nether
-  [Biome.NetherWastes]: { r: 130, g: 48, b: 48 },
-  [Biome.SoulSandValley]: { r: 77, g: 58, b: 46 },
-  [Biome.CrimsonForest]: { r: 180, g: 25, b: 25 },
-  [Biome.WarpedForest]: { r: 20, g: 160, b: 133 },
-  [Biome.BasaltDeltas]: { r: 80, g: 80, b: 80 },
+  // Nether — dark reds and oranges
+  [Biome.NetherWastes]:  { r: 112, g: 38,  b: 24  },
+  [Biome.SoulSandValley]:{ r: 68,  g: 52,  b: 40  },
+  [Biome.CrimsonForest]: { r: 158, g: 22,  b: 22  },
+  [Biome.WarpedForest]:  { r: 18,  g: 130, b: 112 },
+  [Biome.BasaltDeltas]:  { r: 68,  g: 68,  b: 72  },
 
   // End
-  [Biome.TheEnd]: { r: 128, g: 128, b: 90 },
+  [Biome.TheEnd]: { r: 116, g: 114, b: 76  },
 };
 
 export const BIOME_VALUES = Object.values(Biome) as Biome[];

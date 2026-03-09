@@ -319,7 +319,7 @@ export default function ExploreApp() {
         />
       )}
       <section
-        className={`flex flex-col border-b border-white/5 ${
+        className={`flex flex-col border-b border-white/5 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
           isMapExpanded
             ? `h-[calc(100vh-4.5rem)] sm:h-[calc(100vh-3.8125rem)] ${isSidePanelOpen ? "md:mr-[var(--theme-drawer-width)]" : ""}`
             : "h-[calc(100vh-17rem)] min-h-[22rem]"
@@ -334,18 +334,29 @@ export default function ExploreApp() {
           seed={seed}
           settings={mapSettings}
         />
-        <div className="min-h-0 flex-1">
-          <MapCanvas
-            seed={seed}
-            edition={edition}
-            dimension={dimension}
-            isGenerating={isGenerating}
-            settings={mapSettings}
-            markerSettings={markerSettings}
-            biomeOverlay={biomeOverlay}
-            onBiomeHover={handleBiomeHover}
-            onGenerationComplete={handleGenerationComplete}
-          />
+        {/* Map sidewalk wrapper — full-width in expanded mode, padded otherwise */}
+        <div className={`min-h-0 flex-1 transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+          isMapExpanded
+            ? "p-0"
+            : "px-3 pb-3 sm:px-4 sm:pb-4 lg:px-6 lg:pb-5"
+        }`}>
+          <div className={`h-full w-full overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+            isMapExpanded
+              ? "rounded-none"
+              : "rounded-2xl border border-white/8 shadow-[0_8px_32px_rgba(0,0,0,0.42)]"
+          }`}>
+            <MapCanvas
+              seed={seed}
+              edition={edition}
+              dimension={dimension}
+              isGenerating={isGenerating}
+              settings={mapSettings}
+              markerSettings={markerSettings}
+              biomeOverlay={biomeOverlay}
+              onBiomeHover={handleBiomeHover}
+              onGenerationComplete={handleGenerationComplete}
+            />
+          </div>
         </div>
       </section>
 

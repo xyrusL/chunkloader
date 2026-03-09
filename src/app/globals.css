@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 :root {
@@ -28,6 +29,15 @@
   --theme-shadow-panel: 0 18px 40px rgba(0, 0, 0, 0.34);
   --theme-shadow-accent: 0 16px 32px rgba(16, 185, 129, 0.18);
   --theme-drawer-width: 26rem;
+
+  /* Animation timing */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 200ms;
+  --duration-base: 360ms;
+  --duration-slow: 600ms;
 }
 
 body {
@@ -89,23 +99,354 @@ select option {
   color: var(--foreground);
 }
 
-/* Fade-in animation for tooltips */
+/* ─── Keyframes ─────────────────────────────────────────── */
+
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+/* Entrance: fade up */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Canvas interaction */
+/* Entrance: fade in */
+@keyframes fadeInOnly {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Entrance: scale up from slightly small */
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Entrance: slide in from left */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Entrance: slide in from right */
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(32px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Entrance: slide up from below (card stagger) */
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Pixel glow pulse */
+@keyframes pixelPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+  50%       { box-shadow: 0 0 10px 2px rgba(52, 211, 153, 0.28); }
+}
+
+/* Subtle shimmer on badge */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Breathing glow for CTA accent line */
+@keyframes accentPulse {
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
+}
+
+/* ─── Animation Utility Classes ─────────────────────────── */
+
+.animate-fade-in       { animation: fadeIn        var(--duration-fast) var(--ease-smooth) both; }
+.animate-fade-up       { animation: fadeUp        var(--duration-slow) var(--ease-out-expo) both; }
+.animate-fade-in-only  { animation: fadeInOnly    var(--duration-slow) var(--ease-smooth)  both; }
+.animate-scale-up      { animation: scaleUp       var(--duration-slow) var(--ease-spring)  both; }
+.animate-slide-left    { animation: slideInLeft   var(--duration-slow) var(--ease-out-expo) both; }
+.animate-slide-right   { animation: slideInRight  var(--duration-slow) var(--ease-out-expo) both; }
+.animate-slide-up      { animation: slideInUp     var(--duration-base) var(--ease-out-expo) both; }
+
+/* Scroll-triggered: hidden until .is-visible is added via JS */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity var(--duration-slow) var(--ease-out-expo),
+    transform var(--duration-slow) var(--ease-out-expo);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger delays for child groups */
+.stagger-1  { transition-delay: 60ms; }
+.stagger-2  { transition-delay: 120ms; }
+.stagger-3  { transition-delay: 180ms; }
+.stagger-4  { transition-delay: 240ms; }
+.stagger-5  { transition-delay: 300ms; }
+.stagger-6  { transition-delay: 360ms; }
+
+/* ─── Interactive Hover Transitions ─────────────────────── */
+
+/* Card hover lift */
+.card-hover {
+  transition:
+    transform var(--duration-base) var(--ease-spring),
+    border-color var(--duration-base) var(--ease-smooth),
+    box-shadow var(--duration-base) var(--ease-smooth);
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) scale(1.012);
+  border-color: rgba(52, 211, 153, 0.22);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(52, 211, 153, 0.08);
+}
+
+/* Subtle card glow (for feature cards) */
+.card-glow-hover {
+  transition:
+    transform var(--duration-base) var(--ease-spring),
+    box-shadow var(--duration-base) var(--ease-smooth);
+}
+.card-glow-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.4), 0 0 20px rgba(52, 211, 153, 0.06);
+}
+
+/* Stat card accent-border-on-hover */
+.stat-card {
+  transition:
+    transform var(--duration-base) var(--ease-spring),
+    border-color var(--duration-fast) var(--ease-smooth),
+    background var(--duration-base) var(--ease-smooth);
+}
+.stat-card:hover {
+  transform: translateY(-3px) scale(1.02);
+  border-color: rgba(52, 211, 153, 0.28);
+}
+
+/* ─── Minecraft Badge ────────────────────────────────────── */
+
+.mc-badge {
+  position: relative;
+  box-shadow: 2px 2px 0 rgba(52, 211, 153, 0.4), -1px -1px 0 rgba(52, 211, 153, 0.1);
+  animation: pixelPulse 3s ease-in-out infinite;
+}
+
+/* ─── FAQ Accordion ──────────────────────────────────────── */
+
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-item {
+  transition:
+    border-color var(--duration-base) var(--ease-smooth),
+    background var(--duration-base) var(--ease-smooth),
+    transform var(--duration-base) var(--ease-spring);
+}
+
+.faq-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(52, 211, 153, 0.16);
+}
+
+.faq-item[open] {
+  border-color: rgba(52, 211, 153, 0.22);
+  background: linear-gradient(180deg, rgba(52, 211, 153, 0.04), rgba(255, 255, 255, 0.02));
+}
+
+.faq-item[open] summary {
+  color: var(--theme-accent);
+}
+
+/* Animate FAQ content open */
+.faq-item .faq-body {
+  overflow: hidden;
+  transition: max-height var(--duration-slow) var(--ease-out-expo);
+}
+
+.faq-icon {
+  transition: transform var(--duration-base) var(--ease-spring);
+}
+
+.faq-item[open] .faq-icon {
+  transform: rotate(45deg);
+}
+
+/* ─── Biome chip hover ───────────────────────────────────── */
+
+.biome-chip {
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    border-color var(--duration-fast) var(--ease-smooth),
+    background var(--duration-fast) var(--ease-smooth);
+}
+
+.biome-chip:hover {
+  transform: scale(1.08) translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* ─── CTA accent line pulse ──────────────────────────────── */
+
+.accent-line {
+  animation: accentPulse 2.8s ease-in-out infinite;
+}
+
+/* ─── Smooth image reveal ────────────────────────────────── */
+
+.img-reveal {
+  transition: transform var(--duration-slow) var(--ease-out-quart);
+}
+
+.img-reveal:hover {
+  transform: scale(1.02);
+}
+
+/* ─── CTA button ─────────────────────────────────────────── */
+
+.cta-btn-wrap a, .cta-btn-wrap button {
+  transition:
+    transform var(--duration-base) var(--ease-spring),
+    box-shadow var(--duration-base) var(--ease-smooth);
+}
+
+.cta-btn-wrap a:hover, .cta-btn-wrap button:hover {
+  transform: scale(1.04) translateY(-2px);
+  box-shadow: 0 20px 50px rgba(16, 185, 129, 0.3);
+}
+
+/* ─── Canvas interaction ─────────────────────────────────── */
+
 canvas {
   image-rendering: pixelated;
 }
+
+/* ─── Pixel pulse utility ────────────────────────────────── */
+
+.pixel-pulse {
+  animation: pixelPulse 2.4s ease-in-out infinite;
+}
+
+/* ─── Global base transitions ────────────────────────────── */
+/* Every interactive element gets a smooth baseline */
+
+button,
+a[href],
+select {
+  transition:
+    opacity      var(--duration-fast) var(--ease-smooth),
+    color        var(--duration-fast) var(--ease-smooth),
+    background   var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow   var(--duration-fast) var(--ease-smooth),
+    transform    var(--duration-base) var(--ease-spring);
+}
+
+/* Checkboxes + radios */
+input[type="checkbox"],
+input[type="radio"] {
+  transition:
+    background   var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow   var(--duration-fast) var(--ease-smooth);
+}
+
+/* Text inputs and textareas */
+input[type="text"],
+input[type="number"],
+input[type="search"],
+textarea {
+  transition:
+    border-color var(--duration-fast) var(--ease-smooth),
+    box-shadow   var(--duration-fast) var(--ease-smooth),
+    background   var(--duration-fast) var(--ease-smooth);
+}
+
+/* ─── Panel & content reveal ─────────────────────────────── */
+
+.panel-reveal {
+  animation: fadeUp var(--duration-base) var(--ease-out-expo) both;
+}
+
+/* Smooth tab/panel content swap */
+.tab-content-enter {
+  animation: fadeUp var(--duration-base) var(--ease-out-expo) both;
+}
+
+/* ─── Tab items ──────────────────────────────────────────── */
+
+.tab-item {
+  transition:
+    color        var(--duration-fast) var(--ease-smooth),
+    background   var(--duration-base) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth),
+    transform    var(--duration-base) var(--ease-spring),
+    opacity      var(--duration-fast) var(--ease-smooth);
+}
+
+.tab-item:hover {
+  transform: translateY(-1px);
+}
+
+.tab-item.active {
+  transform: translateY(0);
+}
+
+/* ─── Generic smooth button ──────────────────────────────── */
+
+.btn-smooth {
+  transition:
+    transform    var(--duration-base) var(--ease-spring),
+    box-shadow   var(--duration-base) var(--ease-smooth),
+    background   var(--duration-fast) var(--ease-smooth),
+    color        var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
+}
+
+.btn-smooth:hover {
+  transform: translateY(-2px) scale(1.03);
+}
+
+.btn-smooth:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 80ms;
+}
+
+/* ─── Toggle / switch track ──────────────────────────────── */
+
+.switch-track {
+  transition:
+    background   var(--duration-base) var(--ease-smooth),
+    border-color var(--duration-base) var(--ease-smooth);
+}
+
+.switch-thumb {
+  transition: transform var(--duration-base) var(--ease-spring);
+}
+
+/* ─── UI panel container ─────────────────────────────────── */
+
+.ui-panel {
+  transition:
+    opacity     var(--duration-base) var(--ease-smooth),
+    transform   var(--duration-base) var(--ease-out-expo),
+    box-shadow  var(--duration-base) var(--ease-smooth);
+}
+
+/* ─── Focus ring (keyboard accessibility) ────────────────── */
+
+:focus-visible {
+  outline: 2px solid rgba(52, 211, 153, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+

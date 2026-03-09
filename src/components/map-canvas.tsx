@@ -843,24 +843,27 @@ function MapOverlayBadge({
 }) {
   return (
     <div
-      className="pointer-events-none absolute -translate-x-1/2 -translate-y-full"
+      className="pointer-events-none absolute -translate-x-1/2 -translate-y-full transition-transform duration-150 hover:scale-105"
       style={{ left: x, top: y }}
     >
-      <div className={`flex items-center gap-2 rounded-sm border px-2 py-1 shadow-[0_3px_0_rgba(0,0,0,0.4)] ${accent}`}>
-        <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-black/35">
+      <div className={`flex items-center gap-1.5 rounded border px-2 py-1 shadow-[0_4px_12px_rgba(0,0,0,0.5)] backdrop-blur-sm ${accent}`}>
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm bg-black/40">
           {icon}
         </span>
         {swatch && (
           <span
-            className="h-3 w-3 rounded-[2px] border border-white/20"
+            className="h-2.5 w-2.5 shrink-0 rounded-[2px] border border-white/25 shadow-inner"
             style={{ backgroundColor: swatch }}
           />
         )}
-        <span className="max-w-[12rem] truncate font-mono text-[11px] uppercase tracking-[0.08em]">
+        <span className="max-w-[12rem] truncate font-mono text-[11px] font-medium uppercase tracking-[0.08em]">
           {label}
         </span>
       </div>
-      <div className="mx-auto h-2 w-px bg-white/30" />
+      {/* Stem */}
+      <div className="mx-auto h-3 w-px bg-gradient-to-b from-white/40 to-white/10" />
+      {/* Anchor dot */}
+      <div className="mx-auto h-1.5 w-1.5 -translate-x-px rounded-full bg-white/40" />
     </div>
   );
 }
@@ -1238,7 +1241,7 @@ function drawAxisChip(
   context.save();
   context.font = "11px Inter, sans-serif";
   const paddingX = 8;
-  const height = 28;
+  const height = 26;
   const width = Math.max(34, Math.ceil(context.measureText(label).width + paddingX * 2));
   let x = anchorX;
   let y = anchorY;
@@ -1257,10 +1260,16 @@ function drawAxisChip(
     y = anchorY - height / 2;
   }
 
-  context.fillStyle = "rgba(52,52,52,0.92)";
-  roundRectPath(context, x, y, width, height, 10);
+  // Dark pill with subtle border
+  context.fillStyle = "rgba(8,12,22,0.90)";
+  roundRectPath(context, x, y, width, height, 9);
   context.fill();
-  context.fillStyle = "rgba(235,235,235,0.92)";
+  context.strokeStyle = "rgba(52,211,153,0.22)";
+  context.lineWidth = 1;
+  roundRectPath(context, x + 0.5, y + 0.5, width - 1, height - 1, 8.5);
+  context.stroke();
+  // Accent green label text
+  context.fillStyle = "rgba(196,232,210,0.94)";
   context.textBaseline = "middle";
   context.textAlign = "center";
   context.fillText(label, x + width / 2, y + height / 2 + 0.5);
@@ -1317,38 +1326,48 @@ function applyTerrainStyle({
 
   if (terrainEstimation) {
     if (water) {
-      const brightness = 0.72 + terrain.light * 0.18 - depth * 0.22;
-      nextRed *= brightness * 0.9;
-      nextGreen *= brightness * 0.95;
-      nextBlue = nextBlue * (0.92 + terrain.light * 0.18) + depth * 22;
+      // Deeper water = darker + more blue-shifted; shallow = slightly lighter/cyan
+      const brightness = 0.68 + terrain.light * 0.24 - depth * 0.36;
+      nextRed *= brightness * 0.82;
+      nextGreen *= brightness * 0.90;
+      nextBlue = nextBlue * (0.94 + terrain.light * 0.20) + depth * 18;
+      // Shallow water gets subtle cyan warmth
+      const shallowBlend = smoothstep(0.22, 0, depth);
+      nextBlue = mixChannel(nextBlue, nextBlue + 14, shallowBlend * 0.4);
     } else {
-      const brightness = 0.74 + altitude * 0.2 + terrain.light * 0.32 - terrain.slope * 0.16;
+      // Stronger hillshading: doubled light contrast for visible ridges/valleys
+      const brightness = 0.58 + altitude * 0.22 + terrain.light * 0.52 - terrain.slope * 0.18;
       nextRed *= brightness;
       nextGreen *= brightness;
-      nextBlue *= brightness * 0.98;
+      nextBlue *= brightness * 0.97;
 
-      const rockyBlend = smoothstep(0.42, 0.88, altitude)
-        * smoothstep(0.1, 0.68, terrain.slope + altitude * 0.32);
+      // Cool ambient tint in deep shadows
+      const shadowBlend = clamp01(1 - brightness);
+      nextBlue = mixChannel(nextBlue, nextBlue + 8, shadowBlend * 0.3);
+
+      // Rocky stone blend starts earlier on steep/high terrain
+      const rockyBlend = smoothstep(0.36, 0.82, altitude)
+        * smoothstep(0.08, 0.62, terrain.slope + altitude * 0.36);
       if (rockyBlend > 0) {
         const rockTone = isDryBiome(biome)
-          ? { red: 166, green: 145, blue: 112 }
-          : { red: 132, green: 130, blue: 126 };
-        nextRed = mixChannel(nextRed, rockTone.red, rockyBlend * 0.72);
-        nextGreen = mixChannel(nextGreen, rockTone.green, rockyBlend * 0.68);
-        nextBlue = mixChannel(nextBlue, rockTone.blue, rockyBlend * 0.7);
+          ? { red: 158, green: 138, blue: 106 }
+          : { red: 124, green: 122, blue: 118 };
+        nextRed = mixChannel(nextRed, rockTone.red, rockyBlend * 0.76);
+        nextGreen = mixChannel(nextGreen, rockTone.green, rockyBlend * 0.72);
+        nextBlue = mixChannel(nextBlue, rockTone.blue, rockyBlend * 0.74);
       }
 
       if (biomesAtElevation) {
-        const alpineBlend = smoothstep(0.6, 0.94, altitude);
+        const alpineBlend = smoothstep(0.56, 0.92, altitude);
         if (alpineBlend > 0) {
           if (isColdBiome(biome)) {
-            nextRed = mixChannel(nextRed, 242, alpineBlend * 0.68);
-            nextGreen = mixChannel(nextGreen, 244, alpineBlend * 0.68);
-            nextBlue = mixChannel(nextBlue, 246, alpineBlend * 0.72);
+            nextRed = mixChannel(nextRed, 236, alpineBlend * 0.72);
+            nextGreen = mixChannel(nextGreen, 240, alpineBlend * 0.72);
+            nextBlue = mixChannel(nextBlue, 244, alpineBlend * 0.76);
           } else if (!isDryBiome(biome)) {
-            nextRed = mixChannel(nextRed, 170, alpineBlend * 0.28);
-            nextGreen = mixChannel(nextGreen, 174, alpineBlend * 0.3);
-            nextBlue = mixChannel(nextBlue, 166, alpineBlend * 0.24);
+            nextRed = mixChannel(nextRed, 164, alpineBlend * 0.32);
+            nextGreen = mixChannel(nextGreen, 168, alpineBlend * 0.34);
+            nextBlue = mixChannel(nextBlue, 160, alpineBlend * 0.28);
           }
         }
       }
@@ -1357,7 +1376,7 @@ function applyTerrainStyle({
 
   if (contourLines) {
     const contourStrength = getContourStrength(terrain.height, terrain.slope, water);
-    const contourShade = 1 - contourStrength * (water ? 0.22 : 0.44);
+    const contourShade = 1 - contourStrength * (water ? 0.20 : 0.52);
     nextRed *= contourShade;
     nextGreen *= contourShade;
     nextBlue *= contourShade;
@@ -1371,11 +1390,14 @@ function applyTerrainStyle({
 }
 
 function getContourStrength(height: number, slope: number, water: boolean) {
-  const spacing = water ? 0.04 : 0.023;
+  // Tighter spacing = more contour lines = more topographic detail
+  const spacing = water ? 0.035 : 0.019;
   const wrapped = positiveFraction(height / spacing);
   const distanceToLine = Math.min(wrapped, 1 - wrapped);
-  const line = 1 - smoothstep(0.022, 0.11, distanceToLine);
-  const terrainWeight = water ? 0.12 + slope * 0.3 : 0.18 + slope * 0.78 + clamp01((height - 0.46) / 0.54) * 0.14;
+  const line = 1 - smoothstep(0.018, 0.09, distanceToLine);
+  const terrainWeight = water
+    ? 0.10 + slope * 0.28
+    : 0.22 + slope * 0.88 + clamp01((height - 0.46) / 0.54) * 0.18;
   return clamp01(line * terrainWeight);
 }
 
