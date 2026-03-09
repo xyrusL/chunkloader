@@ -1,0 +1,57 @@
+<svg width="1600" height="1200" viewBox="0 0 1600 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1600" height="1200" fill="#08111D"/>
+  <rect width="1600" height="1200" fill="url(#bgGlow)"/>
+  <g opacity="0.8">
+    <path d="M84 164L228 102L372 164V286L228 348L84 286V164Z" fill="#0D2236" stroke="#21425A"/>
+    <path d="M228 348L372 286V408L228 470L84 408V286L228 348Z" fill="#0B1C2E" stroke="#21425A"/>
+    <path d="M84 408L228 346L372 408V530L228 592L84 530V408Z" fill="#10263D" stroke="#28516C"/>
+    <path d="M372 164L516 102L660 164V286L516 348L372 286V164Z" fill="#11324B" stroke="#30657F"/>
+    <path d="M372 408L516 346L660 408V530L516 592L372 530V408Z" fill="#183D54" stroke="#38758B"/>
+    <path d="M660 164L804 102L948 164V286L804 348L660 286V164Z" fill="#0E2942" stroke="#2F5E78"/>
+    <path d="M660 408L804 346L948 408V530L804 592L660 530V408Z" fill="#122D41" stroke="#356B83"/>
+    <path d="M948 164L1092 102L1236 164V286L1092 348L948 286V164Z" fill="#0E2133" stroke="#2B546C"/>
+    <path d="M948 408L1092 346L1236 408V530L1092 592L948 530V408Z" fill="#10283C" stroke="#315D77"/>
+    <path d="M1236 164L1380 102L1524 164V286L1380 348L1236 286V164Z" fill="#10263C" stroke="#2A536E"/>
+    <path d="M1236 408L1380 346L1524 408V530L1380 592L1236 530V408Z" fill="#0F2135" stroke="#2A536E"/>
+  </g>
+  <g opacity="0.9">
+    <path d="M120 250L228 206L336 250V334L228 378L120 334V250Z" fill="#1FAA72"/>
+    <path d="M408 250L516 206L624 250V334L516 378L408 334V250Z" fill="#0F6A92"/>
+    <path d="M696 250L804 206L912 250V334L804 378L696 334V250Z" fill="#3156C9"/>
+    <path d="M984 250L1092 206L1200 250V334L1092 378L984 334V250Z" fill="#17AF87"/>
+    <path d="M1272 250L1380 206L1488 250V334L1380 378L1272 334V250Z" fill="#F57F33"/>
+    <path d="M120 494L228 450L336 494V578L228 622L120 578V494Z" fill="#2AD58D"/>
+    <path d="M408 494L516 450L624 494V578L516 622L408 578V494Z" fill="#F2DB60"/>
+    <path d="M696 494L804 450L912 494V578L804 622L696 578V494Z" fill="#AA68FF"/>
+    <path d="M984 494L1092 450L1200 494V578L1092 622L984 578V494Z" fill="#2CAED4"/>
+    <path d="M1272 494L1380 450L1488 494V578L1380 622L1272 578V494Z" fill="#EEAA43"/>
+  </g>
+  <g opacity="0.75">
+    <path d="M274 638L420 576L566 638V762L420 824L274 762V638Z" fill="#1C364B" stroke="#3C7F8C"/>
+    <path d="M566 638L712 576L858 638V762L712 824L566 762V638Z" fill="#1F3551" stroke="#4173A0"/>
+    <path d="M858 638L1004 576L1150 638V762L1004 824L858 762V638Z" fill="#25324D" stroke="#498A82"/>
+    <path d="M1150 638L1296 576L1442 638V762L1296 824L1150 762V638Z" fill="#28324B" stroke="#5A7DA3"/>
+    <path d="M128 760L274 698L420 760V884L274 946L128 884V760Z" fill="#1B4E53" stroke="#4AAC8E"/>
+    <path d="M420 760L566 698L712 760V884L566 946L420 884V760Z" fill="#343E78" stroke="#6C6FEB"/>
+    <path d="M712 760L858 698L1004 760V884L858 946L712 884V760Z" fill="#285A48" stroke="#65D29B"/>
+    <path d="M1004 760L1150 698L1296 760V884L1150 946L1004 884V760Z" fill="#364564" stroke="#7FB4D6"/>
+    <path d="M1296 760L1442 698L1588 760V884L1442 946L1296 884V760Z" fill="#5F4424" stroke="#E28B45"/>
+  </g>
+  <path d="M0 948C173 878 347 843 521 843C808 843 1054 936 1280 1011C1398 1050 1504 1082 1600 1090V1200H0V948Z" fill="url(#groundFade)"/>
+  <path d="M0 1022C148 965 311 936 489 936C796 936 1059 1033 1286 1097C1409 1131 1515 1155 1600 1159V1200H0V1022Z" fill="url(#mist)"/>
+  <defs>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1080 306) rotate(131.186) scale(824.109 1108.41)">
+      <stop stop-color="#0F2742"/>
+      <stop offset="0.456731" stop-color="#0B1626" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#050A11"/>
+    </radialGradient>
+    <linearGradient id="groundFade" x1="800" y1="843" x2="800" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#07111D" stop-opacity="0"/>
+      <stop offset="1" stop-color="#07111D"/>
+    </linearGradient>
+    <linearGradient id="mist" x1="800" y1="936" x2="800" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1BBF94" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#091321" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>

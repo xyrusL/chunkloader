@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { getAbsoluteUrl, getSiteUrl, SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME } from "@/lib/site-config";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,10 +9,44 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ChunkLoader — Minecraft Seed Map Generator",
-  description:
-    "Generate and explore Minecraft biome maps from any seed. Supports Java and Bedrock editions.",
-  keywords: ["minecraft", "seed map", "biome", "chunkloader", "map generator"],
+  metadataBase: new URL(getSiteUrl()),
+  title: {
+    default: "Minecraft Seed Map Generator",
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  keywords: SITE_KEYWORDS,
+  category: "games",
+  applicationName: SITE_NAME,
+  creator: SITE_NAME,
+  publisher: SITE_NAME,
+  alternates: {
+    canonical: getAbsoluteUrl("/"),
+  },
+  openGraph: {
+    type: "website",
+    title: "Minecraft Seed Map Generator",
+    description: SITE_DESCRIPTION,
+    siteName: SITE_NAME,
+    url: getSiteUrl(),
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Minecraft Seed Map Generator",
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
 };
 
 export default function RootLayout({
