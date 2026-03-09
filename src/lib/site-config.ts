@@ -1,7 +1,7 @@
 export const SITE_NAME = "ChunkLoader";
 export const SITE_DOMAIN = "chunkloader.deze.me";
 export const SITE_DESCRIPTION =
-  "Minecraft seed map generator and biome explorer for Java and Bedrock. Generate biome maps, inspect coordinates, preview structures, and highlight specific biomes.";
+  "Free online Minecraft seed map generator and biome explorer for Java and Bedrock editions. Generate biome maps, find structures, inspect terrain, and share interactive maps — no download needed.";
 export const SITE_KEYWORDS = [
   "minecraft seed map",
   "minecraft biome finder",
@@ -12,6 +12,11 @@ export const SITE_KEYWORDS = [
   "bedrock seed map",
   "minecraft structure finder",
   "minecraft biome explorer",
+  "minecraft village finder",
+  "minecraft seed explorer online",
+  "minecraft nether biome map",
+  "minecraft end biome map",
+  "free minecraft map viewer",
   "chunkloader",
 ];
 

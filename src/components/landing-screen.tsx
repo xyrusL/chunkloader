@@ -154,7 +154,7 @@ const BIOMES = [
   { label: "Nether Wastes", color: "#7F1717" },
 ];
 
-const FAQS = [
+export const FAQS = [
   {
     question: "What is a Minecraft seed?",
     answer:

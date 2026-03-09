@@ -1,23 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import LandingScreen from "@/components/landing-screen";
+import LandingScreen, { FAQS } from "@/components/landing-screen";
 import { createPageMetadata } from "@/lib/page-metadata";
-import { getSiteUrl, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site-config";
+import { getSiteUrl, SITE_NAME } from "@/lib/site-config";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Minecraft Seed Map Generator",
+  description:
+    "Free online Minecraft seed map generator for Java and Bedrock editions. Explore biomes, find structures, inspect terrain, and share interactive maps — no download or account needed.",
   canonicalPath: "/",
   imagePath: "/opengraph-image",
-  imageAlt: "ChunkLoader homepage preview image showing Minecraft seed map branding.",
+  imageAlt: "ChunkLoader — interactive Minecraft seed map generator showing biome colors and terrain.",
 });
 
-const jsonLd = {
+const softwareJsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: SITE_NAME,
   applicationCategory: "GameApplication",
   operatingSystem: "Web",
-  description: SITE_DESCRIPTION,
+  description:
+    "Free online Minecraft seed map generator for Java and Bedrock editions. Explore biomes, find structures, and share interactive maps.",
   url: getSiteUrl(),
   offers: {
     "@type": "Offer",
@@ -26,11 +29,26 @@ const jsonLd = {
   },
   featureList: [
     "Minecraft seed map generation",
-    "Biome highlighting",
-    "Java and Bedrock support",
-    "Structure previews",
-    "Interactive biome exploration",
+    "Biome highlighting and filtering",
+    "Java and Bedrock edition support",
+    "Structure previews (villages, temples, monuments)",
+    "Interactive terrain with topographic shading",
+    "Shareable map links",
+    "Overworld, Nether, and End dimensions",
   ],
+};
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
 };
 
 export default function HomePage() {
@@ -38,7 +56,11 @@ export default function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <LandingScreen
         cta={
@@ -53,3 +75,4 @@ export default function HomePage() {
     </>
   );
 }
+
