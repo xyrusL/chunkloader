@@ -3,6 +3,7 @@
  */
 
 export type Edition = "java" | "bedrock";
+export type Dimension = "overworld" | "nether" | "end";
 
 export interface MinecraftVersion {
   id: string;
@@ -34,6 +35,7 @@ export interface SeedConfig {
   seed: string;
   version: MinecraftVersion;
   edition: Edition;
+  dimension: Dimension;
 }
 
 export function getVersionsForEdition(edition: Edition): MinecraftVersion[] {

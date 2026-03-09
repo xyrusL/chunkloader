@@ -261,6 +261,28 @@ export function SquareIcon(props: IconProps) {
   );
 }
 
+export function ShareIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M8.7 13.3C8.9 12.9 9 12.5 9 12s-.1-.9-.3-1.3" />
+      <path d="M8.7 13.3a3 3 0 1 1 0-2.6" />
+      <path d="m8.7 13.3 6.6 3.3" />
+      <path d="m8.7 10.7 6.6-3.3" />
+      <path d="M18.3 5.4A3 3 0 1 1 21 8.1a3 3 0 0 1-2.7-2.7Z" />
+      <path d="M18.3 18.6A3 3 0 1 1 21 21.3a3 3 0 0 1-2.7-2.7Z" />
+    </IconBase>
+  );
+}
+
+export function CopyLinkIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="M10 13a5 5 0 0 0 7.1 0l2.1-2.1a5 5 0 0 0-7.1-7.1L10.8 5" />
+      <path d="M14 11a5 5 0 0 0-7.1 0l-2.1 2.1a5 5 0 0 0 7.1 7.1L13.2 19" />
+    </IconBase>
+  );
+}
+
 export function SparklesIcon(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -319,6 +341,15 @@ export function WarningIcon(props: IconProps) {
       <path d="M12 4 3 20h18L12 4Z" />
       <path d="M12 10v4" />
       <path d="M12 17h.01" />
+    </IconBase>
+  );
+}
+
+export function CloseIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <path d="m6 6 12 12" />
+      <path d="M18 6 6 18" />
     </IconBase>
   );
 }

@@ -7,9 +7,16 @@ import { CheckSquareIcon, SquareIcon, StructureIcon, WarningIcon } from "@/compo
 interface MarkersPanelProps {
   settings: MarkerSettingsState;
   onSettingsChange: (settings: MarkerSettingsState) => void;
+  compact?: boolean;
+  hideTitle?: boolean;
 }
 
-export default function MarkersPanel({ settings, onSettingsChange }: MarkersPanelProps) {
+export default function MarkersPanel({
+  settings,
+  onSettingsChange,
+  compact = false,
+  hideTitle = false,
+}: MarkersPanelProps) {
   const { spawnPoint, slimeChunks, structuresEnabled, selectedStructures } = settings;
 
   const update = (patch: Partial<MarkerSettingsState>) => {
@@ -35,16 +42,14 @@ export default function MarkersPanel({ settings, onSettingsChange }: MarkersPane
   };
 
   return (
-    <div className="p-5">
-      <h3 className="text-base font-semibold text-white mb-4">Markers</h3>
+    <div className="mx-auto max-w-5xl p-5 sm:p-6">
+      {!hideTitle && <h3 className="mb-4 text-base font-semibold text-white">Markers</h3>}
 
-      {/* Top toggles */}
-      <div className="flex items-center gap-6 mb-5">
+      <div className={`mb-5 grid gap-3 ${compact ? "grid-cols-1" : "sm:grid-cols-2 lg:max-w-2xl"}`}>
         <ToggleSwitch label="Spawn point" checked={spawnPoint} onChange={() => update({ spawnPoint: !spawnPoint })} />
         <ToggleSwitch label="Slime chunks" checked={slimeChunks} onChange={() => update({ slimeChunks: !slimeChunks })} />
       </div>
 
-      {/* Structures section */}
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <ToggleSwitch
@@ -57,7 +62,7 @@ export default function MarkersPanel({ settings, onSettingsChange }: MarkersPane
         {structuresEnabled && (
           <>
             {/* Select all / Clear */}
-            <div className="flex items-center gap-2 mb-3">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               <button
                 onClick={selectAll}
                 className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
@@ -76,8 +81,7 @@ export default function MarkersPanel({ settings, onSettingsChange }: MarkersPane
               </button>
             </div>
 
-            {/* Structure grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <div className={`grid gap-2 ${compact ? "grid-cols-1" : "md:grid-cols-2 xl:grid-cols-3"}`}>
               {STRUCTURE_TYPES.map((structure) => {
                 const isSelected = selectedStructures.has(structure.id);
                 return (
@@ -123,8 +127,9 @@ function ToggleSwitch({
   onChange: () => void;
 }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer">
+    <label className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-3 cursor-pointer">
       <button
+        type="button"
         onClick={onChange}
         className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
           checked ? "bg-emerald-500" : "bg-white/10"

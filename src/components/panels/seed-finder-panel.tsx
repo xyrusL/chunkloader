@@ -5,7 +5,13 @@ import { ALL_OVERWORLD_BIOMES, STRUCTURE_TYPES } from "@/lib/biome-data";
 import { Biome } from "@/lib/biome-colors";
 import { ChevronDownIcon, SearchIcon, StructureIcon } from "@/components/ui/icons";
 
-export default function SeedFinderPanel() {
+export default function SeedFinderPanel({
+  compact = false,
+  hideTitle = false,
+}: {
+  compact?: boolean;
+  hideTitle?: boolean;
+}) {
   const [highlightFound, setHighlightFound] = useState(false);
   const [selectedBiomes, setSelectedBiomes] = useState<Biome[]>([]);
   const [selectedStructures, setSelectedStructures] = useState<string[]>([]);
@@ -15,15 +21,14 @@ export default function SeedFinderPanel() {
   const [structureDropdownOpen, setStructureDropdownOpen] = useState(false);
 
   return (
-    <div className="p-5">
-      <h3 className="text-base font-semibold text-white mb-4">Seed finder</h3>
+    <div className="mx-auto max-w-5xl p-5 sm:p-6">
+      {!hideTitle && <h3 className="mb-4 text-base font-semibold text-white">Seed finder</h3>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left — Controls */}
-        <div className="space-y-5">
-          {/* Highlight toggle */}
+      <div className={`grid grid-cols-1 gap-5 ${compact ? "" : "xl:grid-cols-[minmax(0,1.15fr)_minmax(18rem,0.85fr)]"}`}>
+        <div className="space-y-5 rounded-2xl border border-white/8 bg-white/[0.02] p-5">
           <label className="flex items-center gap-3 cursor-pointer">
             <button
+              type="button"
               onClick={() => setHighlightFound(!highlightFound)}
               className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
                 highlightFound ? "bg-emerald-500" : "bg-white/10"
@@ -159,8 +164,7 @@ export default function SeedFinderPanel() {
           </button>
         </div>
 
-        {/* Right — Tips */}
-        <div className="bg-white/[0.02] rounded-xl p-4 border border-white/5">
+        <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5">
           <h4 className="text-sm font-semibold text-gray-300 mb-3">Tips:</h4>
           <ul className="space-y-2 text-xs text-gray-400 list-disc list-inside">
             <li>Choose larger ranges if there are no results for a long time.</li>

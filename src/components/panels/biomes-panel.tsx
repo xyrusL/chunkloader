@@ -1,17 +1,29 @@
 "use client";
 
-import { BIOME_CATEGORIES, ALL_OVERWORLD_BIOMES } from "@/lib/biome-data";
+import { getBiomeCategories, getBiomesForDimension } from "@/lib/biome-data";
 import { Biome, BIOME_COLORS } from "@/lib/biome-colors";
 import type { BiomeOverlayState } from "@/lib/map-overlays";
+import type { Dimension } from "@/lib/minecraft-versions";
 import { CheckSquareIcon, SparklesIcon, SquareIcon } from "@/components/ui/icons";
 
 interface BiomesPanelProps {
+  dimension: Dimension;
   settings: BiomeOverlayState;
   onSettingsChange: (settings: BiomeOverlayState) => void;
+  compact?: boolean;
+  hideTitle?: boolean;
 }
 
-export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelProps) {
+export default function BiomesPanel({
+  dimension,
+  settings,
+  onSettingsChange,
+  compact = false,
+  hideTitle = false,
+}: BiomesPanelProps) {
   const { highlightBiomes, selectedBiomes } = settings;
+  const biomeCategories = getBiomeCategories(dimension);
+  const visibleBiomes = getBiomesForDimension(dimension);
 
   const update = (patch: Partial<BiomeOverlayState>) => {
     onSettingsChange({ ...settings, ...patch });
@@ -28,7 +40,7 @@ export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelP
   };
 
   const selectAll = () => {
-    update({ selectedBiomes: new Set(ALL_OVERWORLD_BIOMES) });
+    update({ selectedBiomes: new Set(visibleBiomes) });
   };
 
   const clearAll = () => {
@@ -37,7 +49,7 @@ export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelP
 
   const invert = () => {
     const next = new Set<Biome>();
-    ALL_OVERWORLD_BIOMES.forEach((biome) => {
+    visibleBiomes.forEach((biome) => {
       if (!selectedBiomes.has(biome)) {
         next.add(biome);
       }
@@ -46,12 +58,13 @@ export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelP
   };
 
   return (
-    <div className="p-5">
-      <h3 className="text-base font-semibold text-white mb-4">Biomes</h3>
+    <div className="mx-auto max-w-5xl p-5 sm:p-6">
+      {!hideTitle && <h3 className="mb-4 text-base font-semibold text-white">Biomes</h3>}
 
       {/* Highlight toggle */}
       <label className="flex items-center gap-3 cursor-pointer mb-3">
         <button
+          type="button"
           onClick={() => update({ highlightBiomes: !highlightBiomes })}
           className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${
             highlightBiomes ? "bg-emerald-500" : "bg-white/10"
@@ -71,7 +84,7 @@ export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelP
       </p>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <button
           onClick={selectAll}
           className="flex items-center gap-1 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs 
@@ -98,10 +111,9 @@ export default function BiomesPanel({ settings, onSettingsChange }: BiomesPanelP
         </button>
       </div>
 
-      {/* Biome categories grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-4">
-        {BIOME_CATEGORIES.map((category) => (
-          <div key={category.name}>
+      <div className={`grid gap-4 ${compact ? "grid-cols-1" : "md:grid-cols-2 xl:grid-cols-3"}`}>
+        {biomeCategories.map((category) => (
+          <div key={category.name} className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
             <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 border-b border-white/5 pb-1">
               {category.name}
             </h4>

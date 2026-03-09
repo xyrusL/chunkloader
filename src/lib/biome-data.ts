@@ -4,6 +4,7 @@
 
 import { Biome, BIOME_COLORS } from "./biome-colors";
 import type { BiomeColor } from "./biome-colors";
+import type { Dimension } from "./minecraft-versions";
 
 export interface BiomeCategory {
   name: string;
@@ -11,7 +12,7 @@ export interface BiomeCategory {
 }
 
 /** Overworld biome categories (matching Minecraft wiki grouping) */
-export const BIOME_CATEGORIES: BiomeCategory[] = [
+export const OVERWORLD_BIOME_CATEGORIES: BiomeCategory[] = [
   {
     name: "BEACH",
     biomes: [Biome.Beach, Biome.SnowyBeach, Biome.StonyShore],
@@ -98,8 +99,54 @@ export const BIOME_CATEGORIES: BiomeCategory[] = [
   },
 ];
 
+export const NETHER_BIOME_CATEGORIES: BiomeCategory[] = [
+  {
+    name: "NETHER",
+    biomes: [
+      Biome.NetherWastes,
+      Biome.SoulSandValley,
+      Biome.CrimsonForest,
+      Biome.WarpedForest,
+      Biome.BasaltDeltas,
+    ],
+  },
+];
+
+export const END_BIOME_CATEGORIES: BiomeCategory[] = [
+  {
+    name: "END",
+    biomes: [Biome.TheEnd],
+  },
+];
+
 /** The full list of overworld biomes (flattened from categories) */
-export const ALL_OVERWORLD_BIOMES: Biome[] = BIOME_CATEGORIES.flatMap((c) => c.biomes);
+export const ALL_OVERWORLD_BIOMES: Biome[] = OVERWORLD_BIOME_CATEGORIES.flatMap((c) => c.biomes);
+export const ALL_NETHER_BIOMES: Biome[] = NETHER_BIOME_CATEGORIES.flatMap((c) => c.biomes);
+export const ALL_END_BIOMES: Biome[] = END_BIOME_CATEGORIES.flatMap((c) => c.biomes);
+
+export function getBiomeCategories(dimension: Dimension): BiomeCategory[] {
+  if (dimension === "nether") {
+    return NETHER_BIOME_CATEGORIES;
+  }
+
+  if (dimension === "end") {
+    return END_BIOME_CATEGORIES;
+  }
+
+  return OVERWORLD_BIOME_CATEGORIES;
+}
+
+export function getBiomesForDimension(dimension: Dimension): Biome[] {
+  if (dimension === "nether") {
+    return ALL_NETHER_BIOMES;
+  }
+
+  if (dimension === "end") {
+    return ALL_END_BIOMES;
+  }
+
+  return ALL_OVERWORLD_BIOMES;
+}
 
 /** Structure types for the Markers panel */
 export interface StructureType {

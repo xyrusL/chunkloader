@@ -5,7 +5,7 @@
 
 import { SeededNoise, hashSeed } from "./noise";
 import { Biome, BIOME_INDEX, BIOME_VALUES } from "./biome-colors";
-import type { Edition } from "./minecraft-versions";
+import type { Dimension, Edition } from "./minecraft-versions";
 
 interface NoiseConfig {
   tempScale: number;
@@ -74,9 +74,10 @@ export class BiomeGenerator {
   private terrainNoise: SeededNoise;
   private detailNoise: SeededNoise;
   private config: NoiseConfig;
+  private dimension: Dimension;
   private tileCache = new Map<string, TerrainTile>();
 
-  constructor(seed: string, edition: Edition) {
+  constructor(seed: string, edition: Edition, dimension: Dimension) {
     const s = typeof seed === "string" ? hashSeed(seed) : Number(seed);
     this.tempNoise = new SeededNoise(s);
     this.humidNoise = new SeededNoise(s + 1000);
@@ -87,6 +88,7 @@ export class BiomeGenerator {
     this.terrainNoise = new SeededNoise(s + 6000);
     this.detailNoise = new SeededNoise(s + 7000);
     this.config = edition === "java" ? JAVA_NOISE : BEDROCK_NOISE;
+    this.dimension = dimension;
   }
 
   /** Get biome at world coordinate (blockX, blockZ) */
@@ -96,13 +98,7 @@ export class BiomeGenerator {
 
   getBiomeIndexAt(x: number, z: number): number {
     const climate = this.sampleClimate(x, z);
-    return BIOME_INDEX[this.classify(
-      climate.temp,
-      climate.humid,
-      climate.cont,
-      climate.erosion,
-      climate.weird
-    )];
+    return BIOME_INDEX[this.classify(climate)];
   }
 
   getBiomeIndexFromTile(worldX: number, worldZ: number, scale: number): number {
@@ -193,13 +189,7 @@ export class BiomeGenerator {
 
         if (x >= 0 && x < BIOME_TILE_SIZE && z >= 0 && z < BIOME_TILE_SIZE) {
           const tileOffset = z * BIOME_TILE_SIZE + x;
-          tile.biomeIndices[tileOffset] = BIOME_INDEX[this.classify(
-            climate.temp,
-            climate.humid,
-            climate.cont,
-            climate.erosion,
-            climate.weird
-          )];
+          tile.biomeIndices[tileOffset] = BIOME_INDEX[this.classify(climate)];
         }
       }
     }
@@ -248,6 +238,18 @@ export class BiomeGenerator {
   }
 
   private estimateHeight(climate: ClimateSample, x: number, z: number): number {
+    if (this.dimension === "nether") {
+      return this.estimateNetherHeight(climate, x, z);
+    }
+
+    if (this.dimension === "end") {
+      return this.estimateEndHeight(x, z);
+    }
+
+    return this.estimateOverworldHeight(climate, x, z);
+  }
+
+  private estimateOverworldHeight(climate: ClimateSample, x: number, z: number): number {
     const macro = normalizeSigned(this.terrainNoise.fractal(x * 0.0012, z * 0.0012, 5, 2.05, 0.5));
     const ridge = 1 - Math.abs(this.ridgeNoise.fractal(x * 0.0024, z * 0.0024, 5, 2.1, 0.52));
     const detail = this.detailNoise.fractal(x * 0.008, z * 0.008, 4, 2.2, 0.48);
@@ -266,7 +268,70 @@ export class BiomeGenerator {
     return clamp01(0.42 + continentalLift + macroLift + ridgeLift + plateauLift + detailLift - valleyCut);
   }
 
-  private classify(
+  private estimateNetherHeight(climate: ClimateSample, x: number, z: number): number {
+    const macro = normalizeSigned(this.terrainNoise.fractal(x * 0.0028, z * 0.0028, 4, 2.15, 0.52));
+    const ridge = 1 - Math.abs(this.ridgeNoise.fractal(x * 0.0052, z * 0.0052, 4, 2.25, 0.55));
+    const detail = this.detailNoise.fractal(x * 0.012, z * 0.012, 4, 2.35, 0.48);
+    const basin = smoothstep(0.2, 0.82, normalizeSigned(climate.cont));
+    const roughness = 1 - normalizeSigned(climate.erosion);
+    return clamp01(0.5 + macro * 0.1 + ridge * 0.22 + detail * (0.04 + roughness * 0.08) - basin * 0.08);
+  }
+
+  private estimateEndHeight(x: number, z: number): number {
+    const distance = Math.hypot(x, z);
+    const islandNoise = normalizeSigned(this.terrainNoise.fractal(x * 0.0018, z * 0.0018, 5, 2.05, 0.5));
+    const ridge = 1 - Math.abs(this.ridgeNoise.fractal(x * 0.0046, z * 0.0046, 4, 2.1, 0.52));
+    const detail = this.detailNoise.fractal(x * 0.009, z * 0.009, 3, 2.2, 0.46);
+    const centralIsland = smoothstep(1800, 0, distance) * 0.45;
+    const outerIslands = smoothstep(1200, 5400, distance) * islandNoise * 0.42;
+    return clamp01(0.06 + centralIsland + outerIslands + ridge * 0.1 + detail * 0.04);
+  }
+
+  private classify(climate: ClimateSample): Biome {
+    if (this.dimension === "nether") {
+      return this.classifyNether(climate);
+    }
+
+    if (this.dimension === "end") {
+      return Biome.TheEnd;
+    }
+
+    return this.classifyOverworld(
+      climate.temp,
+      climate.humid,
+      climate.cont,
+      climate.erosion,
+      climate.weird
+    );
+  }
+
+  private classifyNether(climate: ClimateSample): Biome {
+    const heat = climate.temp;
+    const humidity = climate.humid;
+    const basin = climate.cont;
+    const erosion = climate.erosion;
+    const weird = climate.weird;
+
+    if (erosion < -0.35 && basin > -0.1) {
+      return Biome.BasaltDeltas;
+    }
+
+    if (weird > 0.22 && humidity > -0.05) {
+      return Biome.WarpedForest;
+    }
+
+    if (weird < -0.18 && heat > -0.2) {
+      return Biome.CrimsonForest;
+    }
+
+    if (basin < -0.18 || Math.abs(weird) < 0.1) {
+      return Biome.SoulSandValley;
+    }
+
+    return Biome.NetherWastes;
+  }
+
+  private classifyOverworld(
     temp: number,
     humid: number,
     cont: number,

@@ -7,15 +7,38 @@
 :root {
   --background: #0a0a14;
   --foreground: #e5e5e5;
+  --theme-bg-app: #0a0a14;
+  --theme-bg-header: #0d0d1a;
+  --theme-bg-toolbar: rgba(22, 22, 42, 0.9);
+  --theme-bg-tabs: #090916;
+  --theme-bg-panel: #111124;
+  --theme-bg-panel-active: #0c1a25;
+  --theme-bg-overlay: rgba(9, 12, 22, 0.94);
+  --theme-surface-soft: rgba(255, 255, 255, 0.05);
+  --theme-surface-strong: rgba(255, 255, 255, 0.1);
+  --theme-border-soft: rgba(255, 255, 255, 0.08);
+  --theme-border-strong: rgba(126, 231, 135, 0.28);
+  --theme-accent: #34d399;
+  --theme-accent-strong: #10b981;
+  --theme-accent-soft: rgba(16, 185, 129, 0.18);
+  --theme-text-primary: #ffffff;
+  --theme-text-secondary: #d1d5db;
+  --theme-text-muted: #9ca3af;
+  --theme-text-faint: #6b7280;
+  --theme-shadow-panel: 0 18px 40px rgba(0, 0, 0, 0.34);
+  --theme-shadow-accent: 0 16px 32px rgba(16, 185, 129, 0.18);
+  --theme-drawer-width: 26rem;
 }
 
 body {
-  background: var(--background);
+  background: var(--theme-bg-app);
   color: var(--foreground);
   margin: 0;
   padding: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.14) rgba(255, 255, 255, 0.03);
 }
 
 button,
@@ -32,6 +55,13 @@ button:disabled,
 select:disabled,
 input:disabled {
   cursor: not-allowed;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 /* Custom scrollbar */
@@ -55,8 +85,8 @@ input:disabled {
 
 /* Select dropdown styling */
 select option {
-  background-color: #1a1a2e;
-  color: #e5e5e5;
+  background-color: var(--theme-bg-panel);
+  color: var(--foreground);
 }
 
 /* Fade-in animation for tooltips */

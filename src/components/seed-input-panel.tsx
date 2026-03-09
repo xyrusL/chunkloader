@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getVersionsForEdition } from "@/lib/minecraft-versions";
 import type { Edition, MinecraftVersion } from "@/lib/minecraft-versions";
 import { CoffeeIcon, DiceIcon, LayersIcon, MapIcon, SpinnerIcon } from "@/components/ui/icons";
@@ -8,13 +8,37 @@ import { CoffeeIcon, DiceIcon, LayersIcon, MapIcon, SpinnerIcon } from "@/compon
 interface SeedInputPanelProps {
   onGenerate: (seed: string, version: MinecraftVersion, edition: Edition) => void;
   isGenerating: boolean;
+  initialSeed?: string;
+  initialEdition?: Edition;
+  initialVersionId?: string;
 }
 
-export default function SeedInputPanel({ onGenerate, isGenerating }: SeedInputPanelProps) {
-  const [seed, setSeed] = useState("");
-  const [edition, setEdition] = useState<Edition>("java");
+export default function SeedInputPanel({
+  onGenerate,
+  isGenerating,
+  initialSeed = "",
+  initialEdition = "java",
+  initialVersionId,
+}: SeedInputPanelProps) {
+  const [seed, setSeed] = useState(initialSeed);
+  const [edition, setEdition] = useState<Edition>(initialEdition);
   const versions = getVersionsForEdition(edition);
-  const [selectedVersion, setSelectedVersion] = useState(versions[0]);
+  const [selectedVersion, setSelectedVersion] = useState(
+    versions.find((version) => version.id === initialVersionId) ?? versions[0]
+  );
+
+  useEffect(() => {
+    setSeed(initialSeed);
+  }, [initialSeed]);
+
+  useEffect(() => {
+    setEdition(initialEdition);
+  }, [initialEdition]);
+
+  useEffect(() => {
+    const nextVersions = getVersionsForEdition(initialEdition);
+    setSelectedVersion(nextVersions.find((version) => version.id === initialVersionId) ?? nextVersions[0]);
+  }, [initialEdition, initialVersionId]);
 
   const handleEditionChange = (newEdition: Edition) => {
     setEdition(newEdition);
@@ -40,7 +64,7 @@ export default function SeedInputPanel({ onGenerate, isGenerating }: SeedInputPa
   };
 
   return (
-    <div className="bg-[#16162a]/90 backdrop-blur-md border-b border-white/5 px-4 py-3">
+    <div className="border-b border-white/5 bg-[var(--theme-bg-toolbar)] px-4 py-3 backdrop-blur-md">
       <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-3">
         {/* Edition Toggle */}
         <div className="flex rounded-lg overflow-hidden border border-white/10">

@@ -11,7 +11,8 @@ import {
   VillagerHeadIcon,
 } from "@/components/ui/icons";
 import { BiomeGenerator, type TerrainSample } from "@/lib/biome-generator";
-import { Biome, BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
+import { Biome, BIOME_COLORS, BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
+import { formatWorldCoordinate } from "@/lib/coordinate-format";
 import {
   getPixelsPerBlock,
   getVisibleStructureMarkers,
@@ -21,11 +22,12 @@ import {
   type MapViewportState,
   type MarkerSettingsState,
 } from "@/lib/map-overlays";
-import type { Edition } from "@/lib/minecraft-versions";
+import type { Dimension, Edition } from "@/lib/minecraft-versions";
 
 interface MapCanvasProps {
   seed: string;
   edition: Edition;
+  dimension: Dimension;
   isGenerating: boolean;
   settings: MapSettingsState;
   markerSettings: MarkerSettingsState;
@@ -55,6 +57,7 @@ interface RenderJob {
   frameBudgetMs: number;
   drawGrid: boolean;
   drawAxis: boolean;
+  drawChunkAxis: boolean;
   useTerrainModel: boolean;
   useTerrainShading: boolean;
   drawContours: boolean;
@@ -80,6 +83,14 @@ interface SelectedOverlayCommand {
   command: string;
 }
 
+interface HoverTooltipState {
+  biome: Biome;
+  worldX: number;
+  worldZ: number;
+  screenX: number;
+  screenY: number;
+}
+
 interface OverlayTarget extends SelectedOverlayCommand {
   x: number;
   y: number;
@@ -94,6 +105,7 @@ const SETTLE_DELAY_MS = 120;
 export default function MapCanvas({
   seed,
   edition,
+  dimension,
   isGenerating,
   settings,
   markerSettings,
@@ -135,6 +147,7 @@ export default function MapCanvas({
   const [selectedOverlay, setSelectedOverlay] = useState<SelectedOverlayCommand | null>(null);
   const [copiedCommandKey, setCopiedCommandKey] = useState<string | null>(null);
   const [hoveredOverlayKey, setHoveredOverlayKey] = useState<string | null>(null);
+  const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null);
 
   useEffect(() => {
     lowEndDeviceRef.current = detectLowEndDevice();
@@ -174,15 +187,16 @@ export default function MapCanvas({
       return;
     }
 
-    generatorRef.current = new BiomeGenerator(seed, edition);
+    generatorRef.current = new BiomeGenerator(seed, edition, dimension);
     generationCompletePendingRef.current = true;
     offsetRef.current = { x: 0, y: 0 };
     zoomRef.current = 1;
     setVisibleBiomeLabels([]);
     setSelectedOverlay(null);
     setCopiedCommandKey(null);
+    setHoverTooltip(null);
     scheduleRender("generation", true);
-  }, [edition, isGenerating, seed]);
+  }, [dimension, edition, isGenerating, seed]);
 
   useEffect(() => {
     if (!generatorRef.current) {
@@ -199,6 +213,12 @@ export default function MapCanvas({
       window.clearTimeout(settleTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!settings.floatingTooltip) {
+      setHoverTooltip(null);
+    }
+  }, [settings.floatingTooltip]);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -292,8 +312,9 @@ export default function MapCanvas({
       offscreenCanvas,
       offscreenContext,
       frameBudgetMs: getFrameBudget(mode, lowEndDeviceRef.current),
-      drawGrid: settings.showGrid && mode === "settled" && zoom >= (lowEndDeviceRef.current ? 3 : 2),
-      drawAxis: mode === "settled" && zoom >= (lowEndDeviceRef.current ? 2.5 : 1.75),
+      drawGrid: settings.showGrid,
+      drawAxis: settings.showGrid && mode === "settled",
+      drawChunkAxis: settings.showGrid && settings.chunkCoordinates && mode === "settled",
       useTerrainModel: settings.terrainEstimation || settings.contourLines || settings.biomesAtElevation,
       useTerrainShading: settings.terrainEstimation,
       drawContours: settings.contourLines && mode === "settled",
@@ -514,12 +535,24 @@ export default function MapCanvas({
       const worldX = Math.floor((px - offsetRef.current.x) / blockSize) * hoverScale;
       const worldZ = Math.floor((py - offsetRef.current.y) / blockSize) * hoverScale;
       const biomeIndex = generatorRef.current.getBiomeIndexFromTile(worldX, worldZ, hoverScale);
-      onBiomeHover(BIOME_VALUES[biomeIndex], worldX, worldZ);
+      const biome = BIOME_VALUES[biomeIndex];
+      onBiomeHover(biome, worldX, worldZ);
+      if (settings.floatingTooltip && !isDraggingRef.current) {
+        setHoverTooltip({
+          biome,
+          worldX,
+          worldZ,
+          screenX: px,
+          screenY: py,
+        });
+      }
     }
 
     if (!isDraggingRef.current) {
       return;
     }
+
+    setHoverTooltip(null);
 
     const expectedButtonMask = dragButtonRef.current === 2 ? 2 : 1;
     if ((event.buttons & expectedButtonMask) === 0) {
@@ -568,6 +601,11 @@ export default function MapCanvas({
     queueSettledRender();
   }
 
+  function handleMouseLeave() {
+    handleMouseUp();
+    setHoverTooltip(null);
+  }
+
   function applyZoomFromWheel(deltaY: number, clientX: number, clientY: number) {
     if (isDraggingRef.current || dragButtonRef.current !== null) {
       return;
@@ -608,15 +646,16 @@ export default function MapCanvas({
   const worldBounds = getWorldBounds(viewport);
   const pixelsPerBlock = getPixelsPerBlock(viewport);
   const spawnMarkerPosition = worldToScreen(viewport, 0, 0);
-  const visibleStructureMarkers = seed && markerSettings.structuresEnabled
+  const allowOverworldMarkers = dimension === "overworld";
+  const visibleStructureMarkers = seed && allowOverworldMarkers && markerSettings.structuresEnabled
     ? getVisibleStructureMarkers(seed, markerSettings.selectedStructures, worldBounds).slice(0, 18)
     : [];
-  const visibleSlimeChunks = seed && markerSettings.slimeChunks && pixelsPerBlock * 16 >= 10
+  const visibleSlimeChunks = seed && allowOverworldMarkers && markerSettings.slimeChunks && pixelsPerBlock * 16 >= 10
     ? getVisibleSlimeChunkRects(seed, worldBounds, viewport)
     : [];
   const overlayTargets: OverlayTarget[] = [];
 
-  if (markerSettings.spawnPoint && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, viewport)) {
+  if (allowOverworldMarkers && markerSettings.spawnPoint && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, viewport)) {
     overlayTargets.push({
       ...createOverlayCommand("spawn", "Spawn Point", 0, 0),
       x: spawnMarkerPosition.x,
@@ -673,7 +712,7 @@ export default function MapCanvas({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
       onContextMenu={(event) => {
         if (generatorRef.current) {
           event.preventDefault();
@@ -732,6 +771,33 @@ export default function MapCanvas({
                 }}
                 onCopy={() => handleCopyCommand(selectedOverlay.command, selectedOverlay.key)}
               />
+            );
+          })()}
+
+          {settings.floatingTooltip && hoverTooltip && (() => {
+            const biomeColor = BIOME_COLORS[hoverTooltip.biome];
+            const tooltipLeft = Math.min(hoverTooltip.screenX + 16, canvasSize.w - 172);
+            const tooltipTop = Math.max(12, hoverTooltip.screenY - 18);
+
+            return (
+              <div
+                className="pointer-events-none absolute z-10 min-w-36 rounded-md border border-white/10 bg-[#090c16]/92 px-3 py-2 shadow-[0_10px_24px_rgba(0,0,0,0.4)] backdrop-blur"
+                style={{ left: tooltipLeft, top: tooltipTop }}
+              >
+                <div className="flex items-center gap-2">
+                  {biomeColor && (
+                    <span
+                      className="h-3 w-3 rounded-[3px] border border-white/15"
+                      style={{ backgroundColor: `rgb(${biomeColor.r},${biomeColor.g},${biomeColor.b})` }}
+                    />
+                  )}
+                  <span className="text-xs font-medium text-white">{hoverTooltip.biome}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-[11px] text-gray-400">
+                  <span>x: <span className="font-mono text-gray-200">{formatWorldCoordinate(hoverTooltip.worldX, settings)}</span></span>
+                  <span>z: <span className="font-mono text-gray-200">{formatWorldCoordinate(hoverTooltip.worldZ, settings)}</span></span>
+                </div>
+              </div>
             );
           })()}
         </div>
@@ -958,25 +1024,57 @@ function getCanvasElementSize(canvas: HTMLCanvasElement | null) {
 }
 
 function drawGrid(context: CanvasRenderingContext2D, job: RenderJob) {
-  context.strokeStyle = "rgba(255,255,255,0.06)";
+  const pixelsPerBlock = getPixelsPerBlock({
+    offsetX: job.offsetX,
+    offsetY: job.offsetY,
+    zoom: job.blockSize / TILE_SIZE,
+    sampleScale: job.sampleScale,
+    canvasWidth: job.canvasWidth,
+    canvasHeight: job.canvasHeight,
+  });
+  const gridSize = getGridSpacing(pixelsPerBlock);
+  const emphasisEvery = gridSize >= 16 ? 4 : 8;
+  const startWorldX = Math.floor((-job.offsetX / pixelsPerBlock) / gridSize) * gridSize;
+  const endWorldX = Math.ceil((job.canvasWidth - job.offsetX) / pixelsPerBlock / gridSize) * gridSize;
+  const startWorldZ = Math.floor((-job.offsetY / pixelsPerBlock) / gridSize) * gridSize;
+  const endWorldZ = Math.ceil((job.canvasHeight - job.offsetY) / pixelsPerBlock / gridSize) * gridSize;
+
   context.lineWidth = 1;
 
-  for (let col = 0; col < job.cols; col++) {
-    const screenX = (job.startCellX + col) * job.blockSize + job.offsetX;
-    if (screenX < 0 || screenX > job.canvasWidth) {
+  for (let worldX = startWorldX; worldX <= endWorldX; worldX += gridSize) {
+    const screenX = worldX * pixelsPerBlock + job.offsetX;
+    if (screenX < -1 || screenX > job.canvasWidth + 1) {
       continue;
     }
+
+    const isChunkBoundary = worldX % 16 === 0;
+    const isMajorBoundary = worldX % (gridSize * emphasisEvery) === 0;
+    context.strokeStyle = isChunkBoundary
+      ? "rgba(0,0,0,0.26)"
+      : isMajorBoundary
+        ? "rgba(255,255,255,0.08)"
+        : "rgba(255,255,255,0.045)";
+
     context.beginPath();
     context.moveTo(screenX, 0);
     context.lineTo(screenX, job.canvasHeight);
     context.stroke();
   }
 
-  for (let row = 0; row < job.rows; row++) {
-    const screenY = (job.startCellZ + row) * job.blockSize + job.offsetY;
-    if (screenY < 0 || screenY > job.canvasHeight) {
+  for (let worldZ = startWorldZ; worldZ <= endWorldZ; worldZ += gridSize) {
+    const screenY = worldZ * pixelsPerBlock + job.offsetY;
+    if (screenY < -1 || screenY > job.canvasHeight + 1) {
       continue;
     }
+
+    const isChunkBoundary = worldZ % 16 === 0;
+    const isMajorBoundary = worldZ % (gridSize * emphasisEvery) === 0;
+    context.strokeStyle = isChunkBoundary
+      ? "rgba(0,0,0,0.26)"
+      : isMajorBoundary
+        ? "rgba(255,255,255,0.08)"
+        : "rgba(255,255,255,0.045)";
+
     context.beginPath();
     context.moveTo(0, screenY);
     context.lineTo(job.canvasWidth, screenY);
@@ -989,45 +1087,78 @@ function drawAxisLabels(
   job: RenderJob,
   settings: MapSettingsState
 ) {
+  const pixelsPerBlock = getPixelsPerBlock({
+    offsetX: job.offsetX,
+    offsetY: job.offsetY,
+    zoom: job.blockSize / TILE_SIZE,
+    sampleScale: job.sampleScale,
+    canvasWidth: job.canvasWidth,
+    canvasHeight: job.canvasHeight,
+  });
+  const visibleWorldWidth = Math.ceil(job.canvasWidth / pixelsPerBlock);
+  const visibleWorldHeight = Math.ceil(job.canvasHeight / pixelsPerBlock);
+  const worldLabelStep = getAxisLabelStep(pixelsPerBlock);
+  const startWorldX = Math.floor(-job.offsetX / pixelsPerBlock);
+  const startWorldZ = Math.floor(-job.offsetY / pixelsPerBlock);
+  const firstLabelX = Math.ceil(startWorldX / worldLabelStep) * worldLabelStep;
+  const firstLabelZ = Math.ceil(startWorldZ / worldLabelStep) * worldLabelStep;
+
   context.font = "11px Inter, sans-serif";
-  context.fillStyle = "rgba(255,255,255,0.55)";
-  context.strokeStyle = "rgba(255,255,255,0.14)";
-  context.lineWidth = 1;
 
-  const visibleWorldWidth = Math.ceil(job.canvasWidth / job.blockSize) * job.sampleScale;
-  const visibleWorldHeight = Math.ceil(job.canvasHeight / job.blockSize) * job.sampleScale;
-  const labelStep = roundToNice(Math.max(job.sampleScale, Math.round(180 / job.blockSize) * job.sampleScale));
-  const startWorldX = Math.floor(-job.offsetX / job.blockSize) * job.sampleScale;
-  const startWorldZ = Math.floor(-job.offsetY / job.blockSize) * job.sampleScale;
-  const firstLabelX = Math.ceil(startWorldX / labelStep) * labelStep;
-  const firstLabelZ = Math.ceil(startWorldZ / labelStep) * labelStep;
-
-  for (let worldX = firstLabelX; worldX <= startWorldX + visibleWorldWidth + labelStep; worldX += labelStep) {
-    const screenX = (worldX / job.sampleScale) * job.blockSize + job.offsetX;
-    if (screenX < 0 || screenX > job.canvasWidth) {
+  for (let worldX = firstLabelX; worldX <= startWorldX + visibleWorldWidth + worldLabelStep; worldX += worldLabelStep) {
+    const screenX = worldX * pixelsPerBlock + job.offsetX;
+    if (screenX < -40 || screenX > job.canvasWidth + 40) {
       continue;
     }
 
-    const label = formatCoord(worldX, settings);
-    context.fillText(label, screenX + 3, job.canvasHeight - 4);
-    context.beginPath();
-    context.moveTo(screenX, job.canvasHeight - 16);
-    context.lineTo(screenX, job.canvasHeight);
-    context.stroke();
+    drawAxisChip(
+      context,
+      formatWorldCoordinate(worldX, settings),
+      screenX,
+      job.canvasHeight - 8,
+      "bottom"
+    );
   }
 
-  for (let worldZ = firstLabelZ; worldZ <= startWorldZ + visibleWorldHeight + labelStep; worldZ += labelStep) {
-    const screenY = (worldZ / job.sampleScale) * job.blockSize + job.offsetY;
-    if (screenY < 0 || screenY > job.canvasHeight) {
+  for (let worldZ = firstLabelZ; worldZ <= startWorldZ + visibleWorldHeight + worldLabelStep; worldZ += worldLabelStep) {
+    const screenY = worldZ * pixelsPerBlock + job.offsetY;
+    if (screenY < -22 || screenY > job.canvasHeight + 22) {
       continue;
     }
 
-    const label = formatCoord(worldZ, settings);
-    context.fillText(label, job.canvasWidth - context.measureText(label).width - 4, screenY - 2);
-    context.beginPath();
-    context.moveTo(job.canvasWidth - 16, screenY);
-    context.lineTo(job.canvasWidth, screenY);
-    context.stroke();
+    drawAxisChip(
+      context,
+      formatWorldCoordinate(worldZ, settings),
+      job.canvasWidth - 8,
+      screenY,
+      "right"
+    );
+  }
+
+  if (!job.drawChunkAxis) {
+    return;
+  }
+
+  const chunkLabelStep = getChunkLabelStep(pixelsPerBlock);
+  const firstChunkX = Math.ceil(startWorldX / 16 / chunkLabelStep) * chunkLabelStep;
+  const firstChunkZ = Math.ceil(startWorldZ / 16 / chunkLabelStep) * chunkLabelStep;
+
+  for (let chunkX = firstChunkX; chunkX <= Math.ceil((startWorldX + visibleWorldWidth) / 16) + chunkLabelStep; chunkX += chunkLabelStep) {
+    const screenX = chunkX * 16 * pixelsPerBlock + job.offsetX;
+    if (screenX < -28 || screenX > job.canvasWidth + 28) {
+      continue;
+    }
+
+    drawAxisChip(context, `[${chunkX}]`, screenX, 8, "top");
+  }
+
+  for (let chunkZ = firstChunkZ; chunkZ <= Math.ceil((startWorldZ + visibleWorldHeight) / 16) + chunkLabelStep; chunkZ += chunkLabelStep) {
+    const screenY = chunkZ * 16 * pixelsPerBlock + job.offsetY;
+    if (screenY < -18 || screenY > job.canvasHeight + 18) {
+      continue;
+    }
+
+    drawAxisChip(context, `[${chunkZ}]`, 8, screenY, "left");
   }
 }
 
@@ -1074,35 +1205,84 @@ function snapZoomLevel(zoom: number): number {
   return 2 ** exponent;
 }
 
-function roundToNice(value: number): number {
-  const magnitude = 10 ** Math.floor(Math.log10(Math.abs(value) || 1));
-  const normalized = value / magnitude;
-  if (normalized <= 1) {
-    return magnitude;
-  }
-  if (normalized <= 2) {
-    return 2 * magnitude;
-  }
-  if (normalized <= 5) {
-    return 5 * magnitude;
-  }
-  return 10 * magnitude;
+function getGridSpacing(pixelsPerBlock: number) {
+  if (pixelsPerBlock >= 16) return 1;
+  if (pixelsPerBlock >= 8) return 2;
+  if (pixelsPerBlock >= 4) return 4;
+  if (pixelsPerBlock >= 2) return 8;
+  return 16;
 }
 
-function formatCoord(value: number, settings: MapSettingsState): string {
-  if (settings.chunkCoordinates) {
-    return `${Math.round(value / 16)}c`;
+function getAxisLabelStep(pixelsPerBlock: number) {
+  if (pixelsPerBlock >= 12) return 16;
+  if (pixelsPerBlock >= 6) return 32;
+  if (pixelsPerBlock >= 3) return 64;
+  return 128;
+}
+
+function getChunkLabelStep(pixelsPerBlock: number) {
+  const chunkPixels = pixelsPerBlock * 16;
+  if (chunkPixels >= 64) return 1;
+  if (chunkPixels >= 36) return 2;
+  if (chunkPixels >= 20) return 4;
+  return 8;
+}
+
+function drawAxisChip(
+  context: CanvasRenderingContext2D,
+  label: string,
+  anchorX: number,
+  anchorY: number,
+  side: "top" | "bottom" | "left" | "right"
+) {
+  context.save();
+  context.font = "11px Inter, sans-serif";
+  const paddingX = 8;
+  const height = 28;
+  const width = Math.max(34, Math.ceil(context.measureText(label).width + paddingX * 2));
+  let x = anchorX;
+  let y = anchorY;
+
+  if (side === "top") {
+    x = anchorX - width / 2;
+    y = anchorY;
+  } else if (side === "bottom") {
+    x = anchorX - width / 2;
+    y = anchorY - height;
+  } else if (side === "left") {
+    x = anchorX;
+    y = anchorY - height / 2;
+  } else {
+    x = anchorX - width;
+    y = anchorY - height / 2;
   }
 
-  if (settings.binaryCoordinates) {
-    return `0b${Math.round(value).toString(2)}`;
-  }
+  context.fillStyle = "rgba(52,52,52,0.92)";
+  roundRectPath(context, x, y, width, height, 10);
+  context.fill();
+  context.fillStyle = "rgba(235,235,235,0.92)";
+  context.textBaseline = "middle";
+  context.textAlign = "center";
+  context.fillText(label, x + width / 2, y + height / 2 + 0.5);
+  context.restore();
+}
 
-  if (Math.abs(value) >= 1000) {
-    return `${Math.round(value / 1000)}k`;
-  }
-
-  return String(Math.round(value));
+function roundRectPath(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const limitedRadius = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + limitedRadius, y);
+  context.arcTo(x + width, y, x + width, y + height, limitedRadius);
+  context.arcTo(x + width, y + height, x, y + height, limitedRadius);
+  context.arcTo(x, y + height, x, y, limitedRadius);
+  context.arcTo(x, y, x + width, y, limitedRadius);
+  context.closePath();
 }
 
 function brightenChannel(value: number, amount: number) {
