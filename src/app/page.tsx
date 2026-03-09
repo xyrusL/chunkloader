@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import LandingScreen, { FAQS } from "@/components/landing-screen";
+import LandingScreen from "@/components/landing-screen";
+import { FAQS } from "@/lib/faqs";
 import { createPageMetadata } from "@/lib/page-metadata";
 import { getSiteUrl, SITE_NAME } from "@/lib/site-config";
 
@@ -75,4 +76,3 @@ export default function HomePage() {
     </>
   );
 }
-
