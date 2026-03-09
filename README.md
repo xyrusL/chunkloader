@@ -1,51 +1,87 @@
-# ChunkLoader
+<p align="center">
+  <img src="./docs/chunkloader-readme-banner.svg" alt="ChunkLoader banner" width="100%" />
+</p>
 
-ChunkLoader is a browser-based Minecraft seed map explorer for Java and Bedrock worlds.
+<h1 align="center">ChunkLoader</h1>
 
-Open a seed, generate the map, and inspect biomes, coordinates, markers, and structure previews from one place without installing anything.
+<p align="center">
+  Browser-based Minecraft seed map explorer for Java and Bedrock.
+  <br />
+  Open a seed, inspect biomes, preview structures, and share the same map state with one link.
+</p>
 
-## What You Can Do
+<p align="center">
+  <a href="https://chunkloader.deze.me">Live site</a>
+</p>
 
-- Generate an interactive biome map from a Minecraft seed
-- Switch between Java and Bedrock versions
+## What It Does
+
+ChunkLoader turns a Minecraft seed into an interactive browser map. It is built for quick scouting: open a seed, switch edition and dimension, move around the map, and inspect biome context without installing a desktop viewer.
+
+- Generate interactive biome maps from Minecraft seeds
+- Switch between Java and Bedrock behavior presets
 - Explore Overworld, Nether, and End views
-- Highlight specific biomes directly on the map
-- Turn markers on for spawn, slime chunks, and structures
-- Check coordinates while moving around the map
-- Share the current map view with a direct link
+- Highlight selected biomes directly on the map
+- Show spawn, slime chunks, and structure markers
+- Read coordinates while moving through the map
+- Share the exact map state through the URL
 
 ## Main Features
 
-- Interactive seed map with pan and zoom controls
+- Fast pan and zoom map workspace
 - Biome overlays and selectable biome highlighting
-- Structure and marker controls in the map workspace
-- Right-side settings panel for map-first editing
-- Fullscreen map mode for focused exploration
-- Social sharing links with preview metadata
-- Search-friendly landing page for first-time visitors
+- Terrain-style shading for better visual reading
+- Marker tools for structures, spawn, and slime chunks
+- Version-aware controls for Java and Bedrock
+- Mobile-friendly layout without hiding core map tools
+- Landing page and social preview assets for sharing
 
 ## How To Use
 
-1. Open the site landing page.
+1. Open [chunkloader.deze.me](https://chunkloader.deze.me).
 2. Click `Start Exploring`.
-3. Enter your seed or generate a random one.
-4. Pick the edition, version, and dimension you want.
-5. Move around the map and use the lower tabs or side settings panel to adjust overlays, markers, and biome filters.
-6. Share the URL if you want someone else to open the same map view.
+3. Enter a seed or generate a random one.
+4. Pick the edition, version, and dimension.
+5. Move around the map and adjust overlays, markers, and biome filters.
+6. Copy the URL if you want someone else to see the same view.
 
-## Best Experience
+## Behind The Map Engine
 
-- Desktop gives the largest workspace for map exploration.
-- Tablet and phone layouts keep the core tools usable without losing the map.
-- Firefox, Chromium browsers, and other modern browsers are supported.
+If you only want the short version: ChunkLoader does not stream real Minecraft chunks from the game. It builds a deterministic map preview in TypeScript from the seed, then renders that result in the browser.
+
+### Short Explanation
+
+- The seed is hashed into a deterministic 32-bit value in [`src/lib/noise.ts`](./src/lib/noise.ts).
+- The biome engine samples several seeded noise fields for temperature, humidity, continentalness, erosion, and weirdness in [`src/lib/biome-generator.ts`](./src/lib/biome-generator.ts).
+- Those climate values are classified into a biome palette, then cached in 32x32 terrain tiles so panning stays fast.
+- Terrain shading is estimated from generated height, slope, and light values. It is meant to improve readability, not to fully simulate Minecraft chunk generation.
+- Structure markers and slime chunk helpers are lightweight deterministic overlays in [`src/lib/map-overlays.ts`](./src/lib/map-overlays.ts).
+
+### Example
+
+```ts
+import { BiomeGenerator } from "./src/lib/biome-generator";
+
+const generator = new BiomeGenerator("8675309", "java", "overworld");
+
+const biome = generator.getBiomeAt(128, -64);
+const terrain = generator.getTerrainSampleFromTile(128, -64, 4);
+
+console.log(biome, terrain);
+```
+
+### References
+
+- Noise and seed hashing: [`src/lib/noise.ts`](./src/lib/noise.ts)
+- Biome classification and tile cache: [`src/lib/biome-generator.ts`](./src/lib/biome-generator.ts)
+- Marker and slime chunk overlays: [`src/lib/map-overlays.ts`](./src/lib/map-overlays.ts)
+- Biome palette and labels: [`src/lib/biome-colors.ts`](./src/lib/biome-colors.ts)
 
 ## About Accuracy
 
-ChunkLoader is designed as a fast seed exploration tool. It focuses on interactive browsing and visual scouting rather than exact parity with Minecraft internals in every case.
+ChunkLoader is built for fast exploration and visual scouting. It follows a deterministic seed-based model, but it does not aim to be a full one-to-one reimplementation of every Minecraft worldgen rule or every datapack variant.
 
 ## Self-Hosting
-
-If you want to run ChunkLoader yourself:
 
 ```bash
 npm install
@@ -56,6 +92,6 @@ Then open [http://localhost:3000](http://localhost:3000).
 
 ## License
 
-This project is licensed under the **GNU General Public License v3.0**. See [LICENSE](LICENSE).
+This project is licensed under the **GNU General Public License v3.0**. See [LICENSE](./LICENSE).
 
 Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.

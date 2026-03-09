@@ -1,0 +1,58 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">ChunkLoader README banner</title>
+  <desc id="desc">Branded SVG banner for the ChunkLoader project README.</desc>
+  <defs>
+    <linearGradient id="bg" x1="96" y1="28" x2="1078" y2="292" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#08131F"/>
+      <stop offset="0.55" stop-color="#10263B"/>
+      <stop offset="1" stop-color="#0C1425"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="192" y1="72" x2="478" y2="248" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#34D399"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect x="16" y="16" width="1168" height="288" rx="28" fill="url(#bg)"/>
+  <rect x="16" y="16" width="1168" height="288" rx="28" stroke="#FFFFFF" stroke-opacity="0.08"/>
+
+  <circle cx="153" cy="76" r="148" fill="#34D399" fill-opacity="0.11"/>
+  <circle cx="1070" cy="66" r="118" fill="#60A5FA" fill-opacity="0.10"/>
+  <circle cx="926" cy="274" r="132" fill="#F59E0B" fill-opacity="0.09"/>
+
+  <g opacity="0.45">
+    <path d="M672 74C740 62 792 101 844 114C899 128 944 118 1010 92" stroke="#7DD3FC" stroke-width="2"/>
+    <path d="M676 122C735 136 792 166 860 154C926 142 972 118 1034 129" stroke="#34D399" stroke-width="2"/>
+    <path d="M682 176C748 162 797 209 863 220C920 230 968 208 1031 178" stroke="#F59E0B" stroke-width="2"/>
+    <path d="M679 232C733 250 790 256 855 247C918 238 980 203 1039 212" stroke="#A78BFA" stroke-width="2"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="72" width="120" height="120" rx="28" fill="#071018" stroke="#FFFFFF" stroke-opacity="0.08"/>
+    <rect x="86" y="86" width="92" height="92" rx="22" fill="url(#accent)" fill-opacity="0.12"/>
+    <path d="M95 163L145 93" stroke="url(#accent)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M110 95L140 105L155 125L125 115L110 95Z" stroke="url(#accent)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M90 160L120 170L128 148L98 138L90 160Z" stroke="url(#accent)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <rect x="232" y="92" width="110" height="28" rx="14" fill="#0E1F2C" stroke="#FFFFFF" stroke-opacity="0.08"/>
+  <text x="287" y="111" fill="#34D399" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="0.24em" text-anchor="middle">CHUNKLOADER</text>
+
+  <text x="232" y="164" fill="#F8FAFC" font-family="Segoe UI, Arial, sans-serif" font-size="54" font-weight="800">Minecraft seed maps,</text>
+  <text x="232" y="220" fill="#F8FAFC" font-family="Segoe UI, Arial, sans-serif" font-size="54" font-weight="800">without the install step.</text>
+
+  <text x="232" y="257" fill="#9FB3C8" font-family="Segoe UI, Arial, sans-serif" font-size="21" font-weight="500">
+    Browser-based biome exploration for Java and Bedrock, with overlays, structure markers, and shareable views.
+  </text>
+
+  <rect x="904" y="236" width="194" height="34" rx="17" fill="#0E1F2C" stroke="#FFFFFF" stroke-opacity="0.08"/>
+  <rect x="918" y="247" width="10" height="10" rx="5" fill="url(#bar)"/>
+  <text x="938" y="257" fill="#E2E8F0" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="600">chunkloader.deze.me</text>
+</svg>
