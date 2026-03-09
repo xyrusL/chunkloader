@@ -266,10 +266,23 @@ select option {
   color: var(--theme-accent);
 }
 
-/* Animate FAQ content open */
-.faq-item .faq-body {
+/* Smooth FAQ content reveal using CSS grid height animation */
+.faq-item > div {
+  display: grid;
+  grid-template-rows: 0fr;
   overflow: hidden;
-  transition: max-height var(--duration-slow) var(--ease-out-expo);
+  transition: grid-template-rows var(--duration-slow) var(--ease-out-expo),
+              opacity var(--duration-base) var(--ease-smooth);
+  opacity: 0;
+}
+
+.faq-item[open] > div {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.faq-item > div > * {
+  overflow: hidden;
 }
 
 .faq-icon {
@@ -349,6 +362,18 @@ select {
     border-color var(--duration-fast) var(--ease-smooth),
     box-shadow   var(--duration-fast) var(--ease-smooth),
     transform    var(--duration-base) var(--ease-spring);
+}
+
+/* Press feedback on ALL clickable elements */
+button:active:not(:disabled),
+a[href]:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+
+summary:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
 }
 
 /* Checkboxes + radios */

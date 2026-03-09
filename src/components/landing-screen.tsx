@@ -558,8 +558,10 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                       </svg>
                     </span>
                   </summary>
-                  <div className="px-5 pb-4 pt-0 text-sm leading-7 text-[var(--theme-text-secondary)] sm:px-6 sm:pb-5">
-                    {faq.answer}
+                  <div className="faq-body">
+                    <div className="px-5 pb-4 pt-0 text-sm leading-7 text-[var(--theme-text-secondary)] sm:px-6 sm:pb-5">
+                      {faq.answer}
+                    </div>
                   </div>
                 </details>
               ))}
