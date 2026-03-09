@@ -10,7 +10,7 @@ function getRequestHost(request: NextRequest): string {
     .toLowerCase();
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const host = getRequestHost(request);
 
   if (!LEGACY_HOSTS.has(host)) {
