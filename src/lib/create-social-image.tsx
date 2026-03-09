@@ -109,7 +109,7 @@ export function createSocialImage({
           <div style={{ display: "flex", flexDirection: "column", gap: "18px", maxWidth: "760px" }}>
             <div
               style={{
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
                 alignSelf: "flex-start",
                 padding: "10px 18px",
