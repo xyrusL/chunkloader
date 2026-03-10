@@ -518,7 +518,7 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                   key={faq.question}
                   className={`reveal faq-item group rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] backdrop-blur-xl stagger-${i + 1}`}
                 >
-                  <summary className="flex list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-white transition-colors duration-200 hover:text-[var(--theme-accent)] sm:px-6 sm:py-5 sm:text-base">
+                  <summary className="faq-summary flex list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-white hover:text-[var(--theme-accent)] sm:px-6 sm:py-5 sm:text-base">
                     {faq.question}
                     <span className="faq-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--theme-accent)] sm:h-8 sm:w-8">
                       <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
@@ -527,7 +527,7 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                     </span>
                   </summary>
                   <div className="faq-body">
-                    <div className="px-5 pb-4 pt-0 text-sm leading-7 text-[var(--theme-text-secondary)] sm:px-6 sm:pb-5">
+                    <div className="faq-content px-5 pb-4 pt-0 text-sm leading-7 text-[var(--theme-text-secondary)] sm:px-6 sm:pb-5">
                       {faq.answer}
                     </div>
                   </div>

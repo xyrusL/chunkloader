@@ -35,9 +35,11 @@
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-accordion: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 200ms;
   --duration-base: 360ms;
   --duration-slow: 600ms;
+  --duration-accordion: 420ms;
 }
 
 body {
@@ -249,7 +251,10 @@ select option {
   transition:
     border-color var(--duration-base) var(--ease-smooth),
     background var(--duration-base) var(--ease-smooth),
+    box-shadow var(--duration-base) var(--ease-smooth),
     transform var(--duration-base) var(--ease-spring);
+  transform: translateZ(0);
+  will-change: transform, border-color, background;
 }
 
 .faq-item:hover {
@@ -260,33 +265,57 @@ select option {
 .faq-item[open] {
   border-color: rgba(52, 211, 153, 0.22);
   background: linear-gradient(180deg, rgba(52, 211, 153, 0.04), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
 }
 
-.faq-item[open] summary {
+.faq-summary {
+  transition:
+    color var(--duration-fast) var(--ease-smooth),
+    transform var(--duration-fast) var(--ease-smooth);
+}
+
+.faq-item[open] .faq-summary {
   color: var(--theme-accent);
 }
 
-/* Smooth FAQ content reveal using CSS grid height animation */
-.faq-item > div {
+/* Shared accordion motion for every FAQ item */
+.faq-body {
   display: grid;
   grid-template-rows: 0fr;
   overflow: hidden;
-  transition: grid-template-rows var(--duration-slow) var(--ease-out-expo),
-              opacity var(--duration-base) var(--ease-smooth);
+  transition:
+    grid-template-rows var(--duration-accordion) var(--ease-accordion),
+    opacity calc(var(--duration-accordion) - 80ms) var(--ease-smooth);
   opacity: 0;
+  will-change: grid-template-rows, opacity;
 }
 
-.faq-item[open] > div {
+.faq-item[open] .faq-body {
   grid-template-rows: 1fr;
   opacity: 1;
 }
 
-.faq-item > div > * {
+.faq-content {
   overflow: hidden;
+  transform: translateY(-10px);
+  opacity: 0;
+  transition:
+    transform var(--duration-accordion) var(--ease-accordion),
+    opacity calc(var(--duration-accordion) - 120ms) ease-out;
+  will-change: transform, opacity;
+}
+
+.faq-item[open] .faq-content {
+  transform: translateY(0);
+  opacity: 1;
 }
 
 .faq-icon {
-  transition: transform var(--duration-base) var(--ease-spring);
+  transition:
+    transform var(--duration-base) var(--ease-spring),
+    background-color var(--duration-fast) var(--ease-smooth),
+    border-color var(--duration-fast) var(--ease-smooth);
+  transform: translateZ(0);
 }
 
 .faq-item[open] .faq-icon {
@@ -474,4 +503,3 @@ textarea {
   outline-offset: 2px;
   border-radius: 4px;
 }
-

@@ -152,8 +152,15 @@ export function SeedIcon(props: IconProps) {
 export function SettingsIcon(props: IconProps) {
   return (
     <IconBase {...props}>
-      <path d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5Z" />
-      <path d="m19.4 15 .8 1.4-1.6 2.7-1.6-.4a7.7 7.7 0 0 1-1.5.9L15 21h-3l-.5-1.4a7.7 7.7 0 0 1-1.5-.9l-1.6.4-1.6-2.7.8-1.4a7 7 0 0 1 0-1.8l-.8-1.4 1.6-2.7 1.6.4c.5-.4 1-.6 1.5-.9L12 3h3l.5 1.4c.5.2 1 .5 1.5.9l1.6-.4 1.6 2.7-.8 1.4a7 7 0 0 1 0 1.8Z" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.75v2.5" />
+      <path d="M12 18.75v2.5" />
+      <path d="m4.93 4.93 1.77 1.77" />
+      <path d="m17.3 17.3 1.77 1.77" />
+      <path d="M2.75 12h2.5" />
+      <path d="M18.75 12h2.5" />
+      <path d="m4.93 19.07 1.77-1.77" />
+      <path d="m17.3 6.7 1.77-1.77" />
     </IconBase>
   );
 }

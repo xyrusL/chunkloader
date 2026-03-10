@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import TopBar from "@/components/top-bar";
 import SeedInputPanel from "@/components/seed-input-panel";
 import MapInfoBar from "@/components/map-info-bar";
@@ -47,6 +47,7 @@ export default function ExploreApp() {
   const [markerSettings, setMarkerSettings] = useState(createDefaultMarkerSettings);
   const [biomeOverlay, setBiomeOverlay] = useState(createDefaultBiomeOverlayState);
   const [restoredSettings, setRestoredSettings] = useState(false);
+  const mapExpandedBeforePanelRef = useRef(false);
 
   const [hoveredBiome, setHoveredBiome] = useState("");
   const [hoveredX, setHoveredX] = useState(0);
@@ -82,16 +83,18 @@ export default function ExploreApp() {
   const handleToggleSidePanel = useCallback(() => {
     if (isSidePanelOpen) {
       setIsSidePanelOpen(false);
-      setIsMapExpanded(false);
+      setIsMapExpanded(mapExpandedBeforePanelRef.current);
       return;
     }
 
+    mapExpandedBeforePanelRef.current = isMapExpanded;
     setIsMapExpanded(true);
     setIsSidePanelOpen(true);
-  }, [isSidePanelOpen]);
+  }, [isMapExpanded, isSidePanelOpen]);
 
   const handleCloseSidePanel = useCallback(() => {
     setIsSidePanelOpen(false);
+    setIsMapExpanded(mapExpandedBeforePanelRef.current);
   }, []);
 
   const handleDimensionChange = useCallback((nextDimension: Dimension) => {
@@ -227,6 +230,7 @@ export default function ExploreApp() {
       if (event.key === "Escape") {
         if (escapeMode === "drawer") {
           setIsSidePanelOpen(false);
+          setIsMapExpanded(mapExpandedBeforePanelRef.current);
           return;
         }
 
