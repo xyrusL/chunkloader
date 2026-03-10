@@ -12,38 +12,50 @@
 
 <p align="center">
   <a href="https://chunkloader.deze.me">Live site</a>
+  ·
+  <a href="#what-it-does">What it does</a>
+  ·
+  <a href="#how-to-use">How to use</a>
 </p>
 
 ## What It Does
 
 ChunkLoader turns a Minecraft seed into an interactive browser map. It is built for quick scouting: open a seed, switch edition and dimension, move around the map, and inspect biome context without installing a desktop viewer.
 
-- Generate interactive biome maps from Minecraft seeds
-- Switch between Java and Bedrock behavior presets
-- Explore Overworld, Nether, and End views
-- Highlight selected biomes directly on the map
-- Show spawn, slime chunks, and structure markers
-- Read coordinates while moving through the map
-- Share the exact map state through the URL
+- 🗺️ Generate interactive biome maps from Minecraft seeds
+- 🎮 Switch between Java and Bedrock behavior presets
+- 🌍 Explore Overworld, Nether, and End views
+- 🌿 Highlight selected biomes directly on the map
+- 📍 Show spawn, slime chunks, and structure markers
+- #️⃣ Read coordinates while moving through the map
+- 🔗 Share the exact map state through the URL
 
 ## Main Features
 
-- Fast pan and zoom map workspace
-- Biome overlays and selectable biome highlighting
-- Terrain-style shading for better visual reading
-- Marker tools for structures, spawn, and slime chunks
-- Version-aware controls for Java and Bedrock
-- Mobile-friendly layout without hiding core map tools
+### For Players
+
+- ⚡ Fast pan-and-zoom map workspace
+- 🌿 Biome overlays with selectable highlight filters
+- 🏔️ Terrain-style shading for easier visual reading
+- 📌 Marker tools for structures, spawn, and slime chunks
+- 📱 Mobile-friendly layout without hiding core map tools
+- 🎲 Fast seed scouting directly in the browser
+
+### Quick Highlights
+
+- Java and Bedrock version-aware controls
+- Overworld, Nether, and End support
+- Shareable URLs that preserve the current view
 - Landing page and social preview assets for sharing
 
 ## How To Use
 
 1. Open [chunkloader.deze.me](https://chunkloader.deze.me).
 2. Click `Start Exploring`.
-3. Enter a seed or generate a random one.
-4. Pick the edition, version, and dimension.
-5. Move around the map and adjust overlays, markers, and biome filters.
-6. Copy the URL if you want someone else to see the same view.
+3. Enter a seed or generate a random one. 🎲
+4. Pick the edition, version, and dimension. 🎮
+5. Move around the map and adjust overlays, markers, and biome filters. 🗺️
+6. Copy the URL if you want someone else to see the same view. 🔗
 
 ## Behind The Map Engine
 
