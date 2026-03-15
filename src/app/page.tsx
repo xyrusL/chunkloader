@@ -6,13 +6,21 @@ import { createPageMetadata } from "@/lib/page-metadata";
 import { getSiteUrl, SITE_NAME } from "@/lib/site-config";
 
 export const metadata: Metadata = createPageMetadata({
-  title: "Minecraft Seed Map Generator",
+  title: "Minecraft Seed Map Generator & Biome Finder",
   description:
-    "Free online Minecraft seed map generator for Java and Bedrock editions. Explore biomes, find structures, inspect terrain, and share interactive maps — no download or account needed.",
+    "Free online Minecraft seed map generator and biome finder for Java and Bedrock. Explore biomes, structures, and coordinates in shareable maps with no download or account required.",
   canonicalPath: "/",
   imagePath: "/opengraph-image",
-  imageAlt: "ChunkLoader — interactive Minecraft seed map generator showing biome colors and terrain.",
+  imageAlt: "ChunkLoader interactive Minecraft seed map generator and biome finder preview.",
 });
+
+const websiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  alternateName: ["Chunk Loader"],
+  url: getSiteUrl(),
+};
 
 const softwareJsonLd = {
   "@context": "https://schema.org",
@@ -21,7 +29,7 @@ const softwareJsonLd = {
   applicationCategory: "GameApplication",
   operatingSystem: "Web",
   description:
-    "Free online Minecraft seed map generator for Java and Bedrock editions. Explore biomes, find structures, and share interactive maps.",
+    "Free online Minecraft seed map generator and biome finder for Java and Bedrock. Explore biomes, structures, coordinates, and shareable maps with no download required.",
   url: getSiteUrl(),
   offers: {
     "@type": "Offer",
@@ -57,6 +65,10 @@ export default function HomePage() {
     <>
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
       />
       <script
@@ -69,7 +81,7 @@ export default function HomePage() {
             href="/explore"
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,var(--theme-accent-strong),var(--theme-accent))] px-6 py-3.5 text-sm font-semibold text-[#04110b] shadow-[var(--theme-shadow-accent)] transition-transform hover:scale-[1.01]"
           >
-            Start Exploring
+            Open Seed Map Generator
           </Link>
         }
       />

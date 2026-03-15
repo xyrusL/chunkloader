@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
-import { getAbsoluteUrl, getSiteUrl, SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME } from "@/lib/site-config";
+import {
+  getAbsoluteUrl,
+  getBingSiteVerification,
+  getGoogleSiteVerification,
+  getSiteUrl,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+} from "@/lib/site-config";
 import "./globals.css";
 
 const sans = Plus_Jakarta_Sans({
@@ -15,14 +22,15 @@ const mono = JetBrains_Mono({
   display: "swap",
 });
 
+const bingSiteVerification = getBingSiteVerification();
+
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
   title: {
-    default: "Minecraft Seed Map Generator",
+    default: "Minecraft Seed Map Generator & Biome Finder",
     template: `%s | ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
-  keywords: SITE_KEYWORDS,
   category: "games",
   applicationName: SITE_NAME,
   creator: SITE_NAME,
@@ -32,7 +40,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    title: "Minecraft Seed Map Generator",
+    title: "Minecraft Seed Map Generator & Biome Finder",
     description: SITE_DESCRIPTION,
     siteName: SITE_NAME,
     url: getSiteUrl(),
@@ -40,8 +48,12 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Minecraft Seed Map Generator",
+    title: "Minecraft Seed Map Generator & Biome Finder",
     description: SITE_DESCRIPTION,
+  },
+  verification: {
+    google: getGoogleSiteVerification(),
+    other: bingSiteVerification ? { "msvalidate.01": bingSiteVerification } : undefined,
   },
   robots: {
     index: true,

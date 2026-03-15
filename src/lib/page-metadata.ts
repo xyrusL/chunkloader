@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { socialImageContentType, socialImageSize } from "@/lib/create-social-image";
-import { getAbsoluteUrl, SITE_DESCRIPTION, SITE_KEYWORDS, SITE_NAME } from "@/lib/site-config";
+import { getAbsoluteUrl, SITE_DESCRIPTION, SITE_NAME } from "@/lib/site-config";
 
 type PageMetadataOptions = {
   title: string;
@@ -28,7 +28,6 @@ export function createPageMetadata({
   return {
     title,
     description,
-    keywords: SITE_KEYWORDS,
     alternates: {
       canonical: getAbsoluteUrl(canonicalPath),
     },

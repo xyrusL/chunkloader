@@ -102,6 +102,18 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000).
 
+## SEO Verification
+
+If you want to verify the site with search engines after deployment, set these optional environment variables:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://chunkloader.deze.me
+GOOGLE_SITE_VERIFICATION=your-google-verification-token
+BING_SITE_VERIFICATION=your-bing-verification-token
+```
+
+Then submit `https://chunkloader.deze.me/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
+
 ## License
 
 This project is licensed under the **GNU General Public License v3.0**. See [LICENSE](./LICENSE).

@@ -5,29 +5,29 @@ export interface FaqItem {
 
 export const FAQS: FaqItem[] = [
   {
-    question: "What is a Minecraft seed?",
+    question: "How do I find biomes in a Minecraft seed?",
     answer:
-      "A Minecraft seed is a string of text or a number used by the game's world generation algorithm to create a unique world layout. Every world in Minecraft is generated from a seed — you can share it with others to recreate the exact same world, or explore it in ChunkLoader before you load in.",
+      "Paste the seed into ChunkLoader and open the map. The biome finder renders the world layout in your browser so you can scan biome colors, read coordinates, and move around the map before loading the seed in Minecraft.",
   },
   {
-    question: "Does ChunkLoader work with Bedrock Edition?",
+    question: "Does this Minecraft seed map work for Java and Bedrock?",
     answer:
-      "Yes. ChunkLoader supports both Java Edition and Bedrock Edition. When exploring a seed, simply switch the edition selector to match the one you play on. Biome layouts differ between editions, so the edition toggle keeps your map accurate.",
+      "Yes. ChunkLoader supports both Java Edition and Bedrock Edition. Choose the edition you play so the biome map, structures, and world rules stay aligned with that version.",
   },
   {
-    question: "Do I need to install anything to use ChunkLoader?",
+    question: "Do I need to download anything to use ChunkLoader?",
     answer:
-      "No installation required. ChunkLoader is entirely browser-based. Just open the site, enter your seed, and start exploring. There's no account, no download, and no setup — the map renders immediately.",
+      "No. ChunkLoader is entirely browser-based, so there is no account, no download, and no installation step. Open the site, enter a seed, and the map is ready in seconds.",
   },
   {
-    question: "Can I share my map view with friends?",
+    question: "Can I share a Minecraft seed map with friends?",
     answer:
       "Yes. ChunkLoader generates shareable URLs that encode your exact seed, edition, version, dimension, overlay settings, and map position. Copy the link from your browser and anyone you send it to will see the exact same map state.",
   },
   {
     question: "What dimensions does ChunkLoader support?",
     answer:
-      "ChunkLoader supports all three Minecraft dimensions: the Overworld, the Nether, and The End. Switch between them using the dimension selector — each one renders its own biome and structure layout derived from the same seed.",
+      "ChunkLoader supports all three Minecraft dimensions: the Overworld, the Nether, and The End. Switch between them using the dimension selector. Each one renders its own biome and structure layout derived from the same seed.",
   },
   {
     question: "Does ChunkLoader support the latest Minecraft version?",

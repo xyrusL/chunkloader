@@ -1,20 +1,18 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl } from "@/lib/site-config";
+import { getSiteUrl, HOMEPAGE_LAST_MODIFIED } from "@/lib/site-config";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = getSiteUrl();
-  const now = new Date();
 
   return [
     {
       url: `${siteUrl}/`,
-      lastModified: now,
+      lastModified: HOMEPAGE_LAST_MODIFIED,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
       url: `${siteUrl}/explore`,
-      lastModified: now,
       changeFrequency: "weekly",
       priority: 0.9,
     },

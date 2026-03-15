@@ -1,24 +1,8 @@
 export const SITE_NAME = "ChunkLoader";
 export const SITE_DOMAIN = "chunkloader.deze.me";
 export const SITE_DESCRIPTION =
-  "Free online Minecraft seed map generator and biome explorer for Java and Bedrock editions. Generate biome maps, find structures, inspect terrain, and share interactive maps — no download needed.";
-export const SITE_KEYWORDS = [
-  "minecraft seed map",
-  "minecraft biome finder",
-  "minecraft seed viewer",
-  "minecraft biome map generator",
-  "minecraft seed map generator",
-  "java seed map",
-  "bedrock seed map",
-  "minecraft structure finder",
-  "minecraft biome explorer",
-  "minecraft village finder",
-  "minecraft seed explorer online",
-  "minecraft nether biome map",
-  "minecraft end biome map",
-  "free minecraft map viewer",
-  "chunkloader",
-];
+  "Free online Minecraft seed map generator and biome finder for Java and Bedrock. Explore biomes, structures, and coordinates in shareable maps with no download required.";
+export const HOMEPAGE_LAST_MODIFIED = "2026-03-15T00:00:00.000Z";
 
 function normalizeSiteUrl(url: string): string | null {
   const normalizedInput = url.includes("://") ? url : `https://${url}`;
@@ -55,4 +39,12 @@ export function getSiteUrl(): string {
 
 export function getAbsoluteUrl(path = "/"): string {
   return new URL(path, `${getSiteUrl()}/`).toString();
+}
+
+export function getGoogleSiteVerification(): string | undefined {
+  return process.env.GOOGLE_SITE_VERIFICATION?.trim() || undefined;
+}
+
+export function getBingSiteVerification(): string | undefined {
+  return process.env.BING_SITE_VERIFICATION?.trim() || undefined;
 }

@@ -20,12 +20,13 @@ interface LandingScreenProps {
   cta: ReactNode;
 }
 
-// ── Scroll reveal hook ―――――――――――――――――――――――――――――――――――――
 function useScrollReveal() {
   const ref = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     const targets = el.querySelectorAll<HTMLElement>(".reveal");
     const io = new IntersectionObserver(
       (entries) => {
@@ -38,13 +39,14 @@ function useScrollReveal() {
       },
       { threshold: 0.12, rootMargin: "0px 0px -48px 0px" }
     );
-    targets.forEach((t) => io.observe(t));
+
+    targets.forEach((target) => io.observe(target));
+
     return () => io.disconnect();
   }, []);
+
   return ref;
 }
-
-// ── Data ――――――――――――――――――――――――――――――――――――――――――――――――――――
 
 const FEATURE_CARDS = [
   {
@@ -110,12 +112,12 @@ const SIGNALS = [
   {
     label: "Dimensions",
     value: "3 worlds",
-    detail: "Overworld, Nether, and The End — all accessible from the same seed.",
+    detail: "Overworld, Nether, and The End all accessible from the same seed.",
   },
   {
     label: "Render speed",
     value: "Instant",
-    detail: "No install needed. Open the browser and the map is live in seconds.",
+    detail: "No download needed. Open the browser and the map is live in seconds.",
   },
 ];
 
@@ -123,7 +125,7 @@ const WORKFLOW = [
   {
     step: "01",
     title: "Enter a seed",
-    body: "Start from any Minecraft seed — a word, phrase, or number. Lock the edition, version, and dimension you want to inspect.",
+    body: "Start from any Minecraft seed, whether it is a word, phrase, or number. Lock the edition, version, and dimension you want to inspect.",
     icon: SeedIcon,
   },
   {
@@ -155,8 +157,6 @@ const BIOMES = [
   { label: "Nether Wastes", color: "#7F1717" },
 ];
 
-// ── Component ―――――――――――――――――――――――――――――――――――――――――――――――
-
 export default function LandingScreen({ cta }: LandingScreenProps) {
   const pageRef = useScrollReveal();
 
@@ -165,7 +165,6 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
       ref={pageRef}
       className="relative min-h-screen overflow-hidden bg-[var(--theme-bg-app)] text-[var(--theme-text-primary)]"
     >
-      {/* ── Background ──────────────────────────────────── */}
       <div className="absolute inset-0">
         <Image
           src="/landing/chunkloader-hero-bg.svg"
@@ -181,8 +180,6 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
       <div className="pointer-events-none absolute right-[-12rem] top-[22rem] h-[30rem] w-[30rem] rounded-full bg-sky-500/10 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-[118rem] px-4 py-6 sm:px-6 lg:px-10 xl:px-12">
-
-        {/* ── Header ────────────────────────────────────── */}
         <header className="flex items-center justify-between animate-fade-up" style={{ animationDelay: "0ms" }}>
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[var(--theme-accent)] shadow-[var(--theme-shadow-accent)] transition-transform duration-300 hover:scale-110">
@@ -198,37 +195,34 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </header>
 
-        {/* ── Hero ──────────────────────────────────────── */}
         <section className="grid min-h-[calc(100svh-5rem)] items-center gap-10 py-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)] lg:gap-14 lg:py-14">
-          {/* Left column */}
           <div className="max-w-4xl">
-            {/* Minecraft badge */}
             <div
               className="inline-flex items-center gap-2 rounded-none border-2 border-[var(--theme-accent)] bg-[var(--theme-accent-soft)] px-4 py-2 text-[0.72rem] font-bold uppercase tracking-[0.28em] text-[var(--theme-accent)] mc-badge animate-fade-up"
               style={{ animationDelay: "80ms" }}
             >
               <LeafIcon className="h-4 w-4" />
-              Explore Minecraft worlds faster
+              Free online Minecraft seed map
             </div>
 
             <h1
               className="mt-5 text-[2.6rem] font-semibold leading-[0.95] tracking-tight text-white sm:text-6xl xl:text-[6.3rem] animate-fade-up"
               style={{ animationDelay: "160ms" }}
             >
-              Navigate seeds like a{" "}
+              Minecraft Seed Map Generator{" "}
               <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">
-                world atlas
-              </span>
-              , not a spreadsheet.
+                and Biome Finder
+              </span>{" "}
+              for Java and Bedrock.
             </h1>
 
             <p
               className="mt-5 max-w-2xl text-base leading-7 text-[var(--theme-text-secondary)] sm:text-lg animate-fade-up"
               style={{ animationDelay: "240ms" }}
             >
-              ChunkLoader turns raw Minecraft seeds into interactive biome maps with coordinates, overlays,
-              structure previews, dimension switching, and shareable map views — built for actual exploration,
-              not just map screenshots.
+              ChunkLoader is a free online Minecraft seed map generator built for Java and Bedrock players who
+              want to inspect biomes, structures, and coordinates in shareable maps with no download. Paste a
+              seed, open the map, and scout the world in your browser before you load into the game.
             </p>
 
             <div
@@ -237,11 +231,10 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
             >
               <div className="cta-btn-wrap inline-flex">{cta}</div>
               <div className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-5 py-3.5 text-sm text-[var(--theme-text-muted)] transition-colors duration-300 hover:border-white/20">
-                No install. Open a seed and inspect immediately.
+                No download. Open a seed map and inspect it immediately.
               </div>
             </div>
 
-            {/* Signal stat cards */}
             <div
               className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5 animate-fade-up"
               style={{ animationDelay: "400ms" }}
@@ -251,34 +244,39 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                   key={item.label}
                   className={`stat-card rounded-[1.6rem] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 shadow-[var(--theme-shadow-panel)] backdrop-blur-xl stagger-${i + 1}`}
                 >
-                  <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">{item.label}</p>
+                  <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">
+                    {item.label}
+                  </p>
                   <p className="mt-2 text-lg font-semibold text-white sm:text-xl">{item.value}</p>
-                  <p className="mt-1.5 text-xs leading-5 text-[var(--theme-text-secondary)] sm:text-sm sm:leading-6">{item.detail}</p>
+                  <p className="mt-1.5 text-xs leading-5 text-[var(--theme-text-secondary)] sm:text-sm sm:leading-6">
+                    {item.detail}
+                  </p>
                 </article>
               ))}
             </div>
           </div>
 
-          {/* Right column: hero card */}
-          <div
-            className="relative animate-scale-up"
-            style={{ animationDelay: "200ms" }}
-          >
+          <div className="relative animate-scale-up" style={{ animationDelay: "200ms" }}>
             <div className="absolute -left-6 top-10 hidden h-24 w-24 rounded-[2rem] border border-white/10 bg-emerald-400/10 blur-2xl lg:block" />
             <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(15,24,44,0.88),rgba(10,16,32,0.76))] p-4 shadow-[0_26px_80px_rgba(0,0,0,0.4)] backdrop-blur-2xl transition-shadow duration-500 hover:shadow-[0_32px_100px_rgba(0,0,0,0.5)] sm:p-5">
               <div className="rounded-[1.5rem] border border-white/8 bg-[#0b1322]/90 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-[0.68rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Map preview</p>
-                    <p className="mt-1.5 text-lg font-semibold text-white sm:text-2xl">Interactive seed control deck</p>
+                    <p className="text-[0.68rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">
+                      Map preview
+                    </p>
+                    <p className="mt-1.5 text-lg font-semibold text-white sm:text-2xl">
+                      Interactive seed control deck
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 text-right">
-                    <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">Seed</p>
+                    <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">
+                      Seed
+                    </p>
                     <p className="mt-1 font-mono text-xs text-white sm:text-sm">-4653970845219756904</p>
                   </div>
                 </div>
 
-                {/* Hero map image */}
                 <div className="mt-4 overflow-hidden rounded-[1.4rem] border border-white/10">
                   <div className="relative h-44 w-full sm:h-52">
                     <Image
@@ -302,19 +300,35 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                   </div>
                 </div>
 
-                {/* Mini feature row */}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {[
-                    { icon: DiceIcon, label: "Version", sub: "Java 1.21.5", color: "text-emerald-300 bg-emerald-400/12" },
-                    { icon: SearchIcon, label: "Finder", sub: "Seed + biome", color: "text-sky-300 bg-sky-400/12" },
-                    { icon: LayersIcon, label: "Overlays", sub: "Markers + grid", color: "text-amber-300 bg-amber-400/12" },
+                    {
+                      icon: DiceIcon,
+                      label: "Version",
+                      sub: "Java 1.21.5",
+                      color: "text-emerald-300 bg-emerald-400/12",
+                    },
+                    {
+                      icon: SearchIcon,
+                      label: "Finder",
+                      sub: "Seed + biome",
+                      color: "text-sky-300 bg-sky-400/12",
+                    },
+                    {
+                      icon: LayersIcon,
+                      label: "Overlays",
+                      sub: "Markers + grid",
+                      color: "text-amber-300 bg-amber-400/12",
+                    },
                   ].map(({ icon: Icon, label, sub, color }) => (
                     <article
                       key={label}
                       className="rounded-[1.3rem] border border-white/8 bg-white/[0.03] p-3 transition-colors duration-200 hover:border-white/16 hover:bg-white/[0.05]"
                     >
                       <div className="flex items-center gap-2">
-                        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${color}`}>
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${color}`}
+                        >
                           <Icon className="h-4 w-4" />
                         </span>
                         <div className="min-w-0">
@@ -330,7 +344,6 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* ── Biome Gallery ─────────────────────────────── */}
         <section className="pb-8 pt-2">
           <div className="reveal overflow-hidden rounded-[2rem] border border-white/10 shadow-[var(--theme-shadow-panel)] transition-shadow duration-500 hover:shadow-[0_30px_80px_rgba(0,0,0,0.5)]">
             <div className="relative h-56 w-full sm:h-72 md:h-80">
@@ -373,16 +386,15 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* ── Feature Cards ─────────────────────────────── */}
         <section className="pb-8 pt-6">
-          {/* Section header */}
           <div className="reveal mb-6 text-center sm:mb-8">
             <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Features</p>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-4xl">
-              Everything you need to scout a world.
+              Browse biomes, structures, and coordinates in one map.
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[var(--theme-text-secondary)]">
-              ChunkLoader packs a full set of map tools into a single browser tab. No plugins. No extra steps.
+              ChunkLoader puts the main Minecraft seed map tools in one browser tab so you can read a world
+              quickly without extra setup.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -406,14 +418,14 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* ── Workflow + Seed Explorer ───────────────────── */}
         <section className="grid gap-6 pb-8 pt-6 lg:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)] lg:items-start">
-          {/* Workflow steps */}
           <div className="reveal rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,25,43,0.82),rgba(10,14,28,0.86))] p-5 shadow-[var(--theme-shadow-panel)] sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Workflow</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">Designed for map-first iteration.</h2>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                  Find the right Minecraft seed faster.
+                </h2>
               </div>
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-[var(--theme-text-secondary)]">
                 Fast to learn
@@ -449,18 +461,18 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
             </div>
           </div>
 
-          {/* Seed explorer image card */}
           <div className="reveal rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(17,25,43,0.82),rgba(10,14,28,0.86))] p-5 shadow-[var(--theme-shadow-panel)] sm:p-6">
-            <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Why it feels better</p>
+            <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">
+              Why it feels better
+            </p>
             <h2 className="mt-3 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              The interface is built for world scouting, not form filling.
+              A Minecraft biome finder that stays readable while you explore.
             </h2>
             <p className="mt-3 text-sm leading-7 text-[var(--theme-text-secondary)]">
               Large visual anchors, clear version context, controlled side settings, and a map that stays central
               instead of being buried behind disconnected menus.
             </p>
 
-            {/* Seed explorer image */}
             <div className="mt-5 overflow-hidden rounded-[1.4rem] border border-white/10">
               <div className="relative h-48 w-full sm:h-56">
                 <Image
@@ -490,7 +502,9 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                   key={box.label}
                   className="card-hover rounded-[1.4rem] border border-white/8 bg-white/[0.03] p-4"
                 >
-                  <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">{box.label}</p>
+                  <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">
+                    {box.label}
+                  </p>
                   <p className="mt-3 text-base font-semibold text-white sm:text-lg">{box.title}</p>
                   <p className="mt-2 text-sm leading-6 text-[var(--theme-text-secondary)]">{box.body}</p>
                 </div>
@@ -499,7 +513,6 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* ── FAQ Section ───────────────────────────────── */}
         <section className="pb-8 pt-6">
           <div className="mx-auto max-w-3xl">
             <div className="reveal mb-6 text-center sm:mb-8">
@@ -522,7 +535,12 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                     {faq.question}
                     <span className="faq-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--theme-accent)] sm:h-8 sm:w-8">
                       <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                        <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                        <path
+                          d="M7 1v12M1 7h12"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     </span>
                   </summary>
@@ -537,40 +555,40 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </section>
 
-        {/* ── CTA Footer ────────────────────────────────── */}
         <section className="pb-8 pt-6">
           <div className="reveal relative overflow-hidden rounded-[2.4rem] border border-white/10 bg-[linear-gradient(135deg,rgba(9,20,30,0.96),rgba(14,33,50,0.9)_48%,rgba(12,17,35,0.96))] px-5 py-8 shadow-[0_30px_80px_rgba(0,0,0,0.42)] transition-shadow duration-500 hover:shadow-[0_40px_100px_rgba(0,0,0,0.56)] sm:px-8 sm:py-12">
             <div className="pointer-events-none absolute -right-12 top-[-4rem] h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl" />
             <div className="pointer-events-none absolute bottom-[-5rem] left-[28%] h-52 w-52 rounded-full bg-sky-500/10 blur-3xl" />
-            {/* Accent line */}
             <div className="accent-line pointer-events-none absolute left-0 top-0 h-full w-1 bg-gradient-to-b from-emerald-400/40 via-emerald-400/10 to-transparent" />
 
             <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
               <div>
-                <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Start exploring</p>
+                <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">
+                  Start exploring
+                </p>
                 <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-white sm:text-3xl lg:text-4xl">
-                  Open the map, drop in a seed, and scout your world with more context.
+                  Open the Minecraft seed map generator and scout your world with more context.
                 </h2>
                 <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--theme-text-secondary)] sm:text-base">
-                  ChunkLoader is built for players who want faster biome reading, cleaner structure hunting, and a better
-                  way to understand a world before loading into it.
+                  ChunkLoader helps you check biomes, structures, and coordinates before you commit to a world,
+                  then share the same map view with anyone else on your seed.
                 </p>
-                {/* Seed teaser */}
                 <div className="mt-5 inline-flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 transition-colors duration-200 hover:border-white/20">
-                  <span className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">Try seed</span>
+                  <span className="text-[0.65rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">
+                    Try seed
+                  </span>
                   <span className="font-mono text-sm text-[var(--theme-accent)]">-4653970845219756904</span>
                 </div>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
                 <div className="cta-btn-wrap inline-flex">{cta}</div>
                 <div className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-5 py-3.5 text-sm text-[var(--theme-text-muted)] transition-colors duration-200 hover:border-white/20">
-                  Shareable links. Version-aware maps. Browser only.
+                  Shareable maps. Version-aware seed tools. Browser only.
                 </div>
               </div>
             </div>
           </div>
         </section>
-
       </div>
     </main>
   );
