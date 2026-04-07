@@ -2,7 +2,7 @@
 
 const TILE_CACHE_DB = "chunkloader-map-tile-cache";
 const TILE_STORE = "tiles";
-const TILE_CACHE_VERSION = "v1";
+const TILE_CACHE_VERSION = "v2";
 const TILE_CACHE_ENABLED_KEY = "chunkloader:persistent-map-cache";
 const MAX_PERSISTED_TILES = 256;
 

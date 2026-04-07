@@ -248,9 +248,15 @@ export default function MapCanvas({
 
   function getTileConfig(): TileRenderConfig {
     const selectedBiomes = new Set(biomeOverlay.selectedBiomes);
+    const worldSignature = [
+      `seed:${seed}`,
+      `edition:${edition}`,
+      `dimension:${dimension}`,
+    ].join(";");
 
     return {
       signature: [
+        worldSignature,
         settings.terrainEstimation ? "terrain:1" : "terrain:0",
         settings.contourLines ? "contours:1" : "contours:0",
         settings.biomesAtElevation ? "elevation:1" : "elevation:0",
