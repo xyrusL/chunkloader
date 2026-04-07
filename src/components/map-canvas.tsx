@@ -14,6 +14,11 @@ import { BiomeGenerator, type TerrainSample } from "@/lib/biome-generator";
 import { Biome, BIOME_COLORS, BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
 import { formatWorldCoordinate } from "@/lib/coordinate-format";
 import {
+  getPersistentRenderTile,
+  loadMapTileCachePreference,
+  setPersistentRenderTile,
+} from "@/lib/map-tile-cache";
+import {
   getPixelsPerBlock,
   getVisibleStructureMarkers,
   getWorldBounds,
@@ -38,7 +43,7 @@ interface MapCanvasProps {
 
 type RenderMode = "generation" | "settled" | "interaction";
 
-type TileStatus = "queued" | "rendering" | "ready";
+type TileStatus = "idle" | "loading" | "queued" | "rendering" | "ready";
 
 interface TileRenderConfig {
   signature: string;
@@ -63,6 +68,8 @@ interface RenderTile {
   config: TileRenderConfig;
   biomeLabels: VisibleBiomeLabel[];
   seenBiomeLabels: Set<Biome>;
+  cacheLookupStarted: boolean;
+  persistScheduled: boolean;
 }
 
 interface TileRange {
@@ -151,6 +158,7 @@ export default function MapCanvas({
   const terrainSnapshotCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const terrainSnapshotViewportRef = useRef<MapViewportState | null>(null);
   const lowEndDeviceRef = useRef(false);
+  const persistentTileCacheEnabledRef = useRef(true);
   const generationCompletePendingRef = useRef(false);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
   const [hasGenerator, setHasGenerator] = useState(false);
@@ -173,6 +181,7 @@ export default function MapCanvas({
   useEffect(() => {
     lowEndDeviceRef.current = detectLowEndDevice();
     setIsLowEndDevice(lowEndDeviceRef.current);
+    persistentTileCacheEnabledRef.current = loadMapTileCachePreference();
   }, []);
 
   useEffect(() => {
@@ -363,11 +372,13 @@ export default function MapCanvas({
       canvas,
       context,
       imageData: context.createImageData(RENDER_TILE_CELLS, RENDER_TILE_CELLS),
-      status: "queued",
+      status: "idle",
       rowsRendered: 0,
       config,
       biomeLabels: [],
       seenBiomeLabels: new Set<Biome>(),
+      cacheLookupStarted: false,
+      persistScheduled: false,
     };
   }
 
@@ -386,13 +397,76 @@ export default function MapCanvas({
   }
 
   function enqueueTile(tile: RenderTile) {
-    if (tile.status === "ready" || queuedTileKeysRef.current.has(tile.key)) {
+    if (tile.status === "ready" || tile.status === "loading" || queuedTileKeysRef.current.has(tile.key)) {
       return;
     }
 
     tile.status = "queued";
     renderQueueRef.current.push(tile.key);
     queuedTileKeysRef.current.add(tile.key);
+  }
+
+  async function hydrateTileFromPersistentCache(tile: RenderTile) {
+    if (!persistentTileCacheEnabledRef.current || tile.cacheLookupStarted || tile.status === "ready") {
+      return;
+    }
+
+    tile.cacheLookupStarted = true;
+    tile.status = "loading";
+
+    try {
+      const blob = await getPersistentRenderTile(tile.key);
+      const liveTile = renderTileCacheRef.current.get(tile.key);
+      if (!liveTile || liveTile !== tile || liveTile.status === "ready") {
+        return;
+      }
+
+      if (!blob) {
+        liveTile.status = "idle";
+        enqueueTile(liveTile);
+        startRenderLoop();
+        return;
+      }
+
+      const bitmap = await createImageBitmap(blob);
+      liveTile.context.clearRect(0, 0, liveTile.canvas.width, liveTile.canvas.height);
+      liveTile.context.drawImage(bitmap, 0, 0, liveTile.canvas.width, liveTile.canvas.height);
+      bitmap.close();
+      liveTile.status = "ready";
+      liveTile.rowsRendered = RENDER_TILE_CELLS;
+      markTileUsed(liveTile);
+
+      const activeRequest = activeRenderRequestRef.current;
+      if (activeRequest) {
+        drawCanvas(activeRequest.viewport, activeRequest.mode);
+        finalizeRenderRequest(activeRequest.token);
+      }
+    } catch {
+      const liveTile = renderTileCacheRef.current.get(tile.key);
+      if (!liveTile || liveTile !== tile || liveTile.status === "ready") {
+        return;
+      }
+
+      liveTile.status = "idle";
+      enqueueTile(liveTile);
+      startRenderLoop();
+    }
+  }
+
+  function persistTileToBrowser(tile: RenderTile) {
+    if (!persistentTileCacheEnabledRef.current || tile.persistScheduled) {
+      return;
+    }
+
+    tile.persistScheduled = true;
+    tile.canvas.toBlob((blob) => {
+      tile.persistScheduled = false;
+      if (!blob) {
+        return;
+      }
+
+      void setPersistentRenderTile(tile.key, blob);
+    });
   }
 
   function renderTileRows(tile: RenderTile, maxRowsPerFrame: number) {
@@ -467,6 +541,7 @@ export default function MapCanvas({
       tile.context.putImageData(tile.imageData, 0, 0);
       tile.status = "ready";
       markTileUsed(tile);
+      persistTileToBrowser(tile);
     }
   }
 
@@ -655,6 +730,11 @@ export default function MapCanvas({
       for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
         const tile = getOrCreateRenderTile(viewportState.sampleScale, tileX, tileZ, tileConfig);
         requiredTileKeys.add(tile.key);
+
+        if (tile.status === "idle" && persistentTileCacheEnabledRef.current && !tile.cacheLookupStarted) {
+          void hydrateTileFromPersistentCache(tile);
+        }
+
         if (tile.status !== "ready") {
           missingTiles += 1;
           enqueueTile(tile);
@@ -967,16 +1047,7 @@ export default function MapCanvas({
     }
   }
 
-  const displayViewport: MapViewportState = hasGenerator
-    ? {
-      offsetX: offsetRef.current.x,
-      offsetY: offsetRef.current.y,
-      zoom: zoomRef.current,
-      sampleScale: getSampleScale(zoomRef.current, lowEndDeviceRef.current),
-      canvasWidth: canvasSize.w,
-      canvasHeight: canvasSize.h,
-    }
-    : viewport;
+  const displayViewport = viewport;
 
   const worldBounds = getWorldBounds(displayViewport);
   const pixelsPerBlock = getPixelsPerBlock(displayViewport);
