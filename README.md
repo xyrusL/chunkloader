@@ -37,7 +37,9 @@ ChunkLoader turns a Minecraft seed into an interactive browser map. It is built 
 - ⚡ Fast pan-and-zoom map workspace
 - 🌿 Biome overlays with selectable highlight filters
 - 🏔️ Terrain-style shading for easier visual reading
+- 🧭 Grid, contour, chunk-coordinate, and binary-coordinate map modes
 - 📌 Marker tools for structures, spawn, and slime chunks
+- 💾 Saved tab, dimension, marker, biome, and map display preferences
 - 📱 Mobile-friendly layout without hiding core map tools
 - 🎲 Fast seed scouting directly in the browser
 
@@ -46,6 +48,7 @@ ChunkLoader turns a Minecraft seed into an interactive browser map. It is built 
 - Java and Bedrock version-aware controls
 - Overworld, Nether, and End support
 - Shareable URLs that preserve the current view
+- Seed sidebar tools with random seed, copy seed, and numeric/hex seed readouts
 - Landing page and social preview assets for sharing
 
 ## How To Use
@@ -54,7 +57,7 @@ ChunkLoader turns a Minecraft seed into an interactive browser map. It is built 
 2. Click `Start Exploring`.
 3. Enter a seed or generate a random one. 🎲
 4. Pick the edition, version, and dimension. 🎮
-5. Move around the map and adjust overlays, markers, and biome filters. 🗺️
+5. Move around the map and adjust overlays, markers, biome filters, and map display settings. 🗺️
 6. Copy the URL if you want someone else to see the same view. 🔗
 
 ## Behind The Map Engine
@@ -101,18 +104,6 @@ npm run dev
 ```
 
 Then open [http://localhost:3000](http://localhost:3000).
-
-## SEO Verification
-
-If you want to verify the site with search engines after deployment, set these optional environment variables:
-
-```bash
-NEXT_PUBLIC_SITE_URL=https://chunkloader.deze.me
-GOOGLE_SITE_VERIFICATION=your-google-verification-token
-BING_SITE_VERIFICATION=your-bing-verification-token
-```
-
-Then submit `https://chunkloader.deze.me/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
 
 ## License
 
