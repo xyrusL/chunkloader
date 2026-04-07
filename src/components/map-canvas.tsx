@@ -119,11 +119,12 @@ interface OverlayTarget extends SelectedOverlayCommand {
   icon: ReactNode;
 }
 
-const TILE_SIZE = 4;
 const SETTLE_DELAY_MS = 120;
 const RENDER_TILE_CELLS = 64;
 const RENDER_TILE_OVERSCAN = 1;
 const MAX_RENDER_TILES = 96;
+const WHEEL_ZOOM_SENSITIVITY = 0.0012;
+const MAX_WHEEL_DELTA = 240;
 
 export default function MapCanvas({
   seed,
@@ -270,11 +271,11 @@ export default function MapCanvas({
   }
 
   function getVisibleTileRange(viewportState: MapViewportState): TileRange {
-    const blockSize = Math.max(1, TILE_SIZE * viewportState.zoom);
-    const startCellX = Math.floor(-viewportState.offsetX / blockSize);
-    const endCellX = Math.ceil((viewportState.canvasWidth - viewportState.offsetX) / blockSize);
-    const startCellZ = Math.floor(-viewportState.offsetY / blockSize);
-    const endCellZ = Math.ceil((viewportState.canvasHeight - viewportState.offsetY) / blockSize);
+    const cellSize = getSampleCellSize(viewportState);
+    const startCellX = Math.floor(-viewportState.offsetX / cellSize);
+    const endCellX = Math.ceil((viewportState.canvasWidth - viewportState.offsetX) / cellSize);
+    const startCellZ = Math.floor(-viewportState.offsetY / cellSize);
+    const endCellZ = Math.ceil((viewportState.canvasHeight - viewportState.offsetY) / cellSize);
 
     return {
       minTileX: Math.floor(startCellX / RENDER_TILE_CELLS) - RENDER_TILE_OVERSCAN,
@@ -605,7 +606,7 @@ export default function MapCanvas({
 
     const tileRange = getVisibleTileRange(viewportState);
     const tileConfig = getTileConfig();
-    const blockSize = Math.max(1, TILE_SIZE * viewportState.zoom);
+    const cellSize = getSampleCellSize(viewportState);
 
     for (let tileZ = tileRange.minTileZ; tileZ <= tileRange.maxTileZ; tileZ++) {
       for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
@@ -617,10 +618,10 @@ export default function MapCanvas({
         markTileUsed(tile);
         context.drawImage(
           tile.canvas,
-          tile.tileX * RENDER_TILE_CELLS * blockSize + viewportState.offsetX,
-          tile.tileZ * RENDER_TILE_CELLS * blockSize + viewportState.offsetY,
-          RENDER_TILE_CELLS * blockSize,
-          RENDER_TILE_CELLS * blockSize
+          tile.tileX * RENDER_TILE_CELLS * cellSize + viewportState.offsetX,
+          tile.tileZ * RENDER_TILE_CELLS * cellSize + viewportState.offsetY,
+          RENDER_TILE_CELLS * cellSize,
+          RENDER_TILE_CELLS * cellSize
         );
       }
     }
@@ -849,9 +850,9 @@ export default function MapCanvas({
       const px = event.clientX - rect.left;
       const py = event.clientY - rect.top;
       const hoverScale = getSampleScale(zoomRef.current, lowEndDeviceRef.current);
-      const blockSize = Math.max(1, TILE_SIZE * zoomRef.current);
-      const worldX = Math.floor((px - offsetRef.current.x) / blockSize) * hoverScale;
-      const worldZ = Math.floor((py - offsetRef.current.y) / blockSize) * hoverScale;
+      const sampleCellSize = getSampleCellSizeFromValues(zoomRef.current, hoverScale);
+      const worldX = Math.floor((px - offsetRef.current.x) / sampleCellSize) * hoverScale;
+      const worldZ = Math.floor((py - offsetRef.current.y) / sampleCellSize) * hoverScale;
       const biomeIndex = generatorRef.current.getBiomeIndexFromTile(worldX, worldZ, hoverScale);
       const biome = BIOME_VALUES[biomeIndex];
       onBiomeHover(biome, worldX, worldZ);
@@ -926,22 +927,33 @@ export default function MapCanvas({
     setHoverTooltip(null);
   }
 
-  function applyZoomFromWheel(deltaY: number, clientX: number, clientY: number) {
+  function applyZoomFromWheel(deltaY: number, deltaMode: number, clientX: number, clientY: number) {
     if (isDraggingRef.current || dragButtonRef.current !== null) {
       return;
     }
 
-    const zoomFactor = deltaY < 0 ? 1.15 : 0.87;
     const oldZoom = zoomRef.current;
+    const normalizedDelta = normalizeWheelDelta(deltaY, deltaMode);
+    if (Math.abs(normalizedDelta) < 0.01) {
+      return;
+    }
+
+    const zoomFactor = Math.exp(-normalizedDelta * WHEEL_ZOOM_SENSITIVITY);
     const unclampedZoom = oldZoom * zoomFactor;
     const newZoom = clampZoom(settings.snapZoom ? snapZoomLevel(unclampedZoom) : unclampedZoom);
+    if (Math.abs(newZoom - oldZoom) < 0.0001) {
+      return;
+    }
+
     const rect = canvasRef.current?.getBoundingClientRect();
 
     if (rect) {
       const mouseX = clientX - rect.left;
       const mouseY = clientY - rect.top;
-      offsetRef.current.x = mouseX - (mouseX - offsetRef.current.x) * (newZoom / oldZoom);
-      offsetRef.current.y = mouseY - (mouseY - offsetRef.current.y) * (newZoom / oldZoom);
+      const worldX = (mouseX - offsetRef.current.x) / getPixelsPerBlockForZoom(oldZoom);
+      const worldY = (mouseY - offsetRef.current.y) / getPixelsPerBlockForZoom(oldZoom);
+      offsetRef.current.x = mouseX - worldX * getPixelsPerBlockForZoom(newZoom);
+      offsetRef.current.y = mouseY - worldY * getPixelsPerBlockForZoom(newZoom);
     }
 
     zoomRef.current = newZoom;
@@ -1016,7 +1028,7 @@ export default function MapCanvas({
 
       event.preventDefault();
       event.stopPropagation();
-      applyZoomFromWheel(event.deltaY, event.clientX, event.clientY);
+      applyZoomFromWheel(event.deltaY, event.deltaMode, event.clientX, event.clientY);
     };
 
     element.addEventListener("wheel", handleNativeWheel, { passive: false });
@@ -1024,6 +1036,8 @@ export default function MapCanvas({
     return () => {
       element.removeEventListener("wheel", handleNativeWheel);
     };
+    // Intentionally attach once to the live container; refs provide the latest zoom state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1578,6 +1592,18 @@ function getSampleScale(zoom: number, lowEndDevice: boolean): number {
   return baseScale * lowEndMultiplier;
 }
 
+function getPixelsPerBlockForZoom(zoom: number): number {
+  return Math.max(0.01, zoom);
+}
+
+function getSampleCellSize(viewport: MapViewportState): number {
+  return getSampleCellSizeFromValues(viewport.zoom, viewport.sampleScale);
+}
+
+function getSampleCellSizeFromValues(zoom: number, sampleScale: number): number {
+  return Math.max(1, sampleScale * getPixelsPerBlockForZoom(zoom));
+}
+
 function clampZoom(zoom: number): number {
   return Math.max(0.1, Math.min(20, zoom));
 }
@@ -1585,6 +1611,15 @@ function clampZoom(zoom: number): number {
 function snapZoomLevel(zoom: number): number {
   const exponent = Math.round(Math.log2(Math.max(zoom, 0.1)));
   return 2 ** exponent;
+}
+
+function normalizeWheelDelta(deltaY: number, deltaMode: number): number {
+  const scaledDelta = deltaMode === WheelEvent.DOM_DELTA_LINE
+    ? deltaY * 16
+    : deltaMode === WheelEvent.DOM_DELTA_PAGE
+      ? deltaY * 160
+      : deltaY;
+  return Math.max(-MAX_WHEEL_DELTA, Math.min(MAX_WHEEL_DELTA, scaledDelta));
 }
 
 function getGridSpacing(pixelsPerBlock: number) {

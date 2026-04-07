@@ -63,7 +63,7 @@ export function getWorldBounds(viewport: MapViewportState): WorldBounds {
 }
 
 export function getPixelsPerBlock(viewport: MapViewportState): number {
-  return Math.max(0.01, (4 * viewport.zoom) / Math.max(1, viewport.sampleScale));
+  return Math.max(0.01, viewport.zoom);
 }
 
 export function isSlimeChunk(seed: string, chunkX: number, chunkZ: number): boolean {
