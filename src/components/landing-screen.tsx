@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import {
   AppLogoIcon,
@@ -589,6 +590,32 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
             </div>
           </div>
         </section>
+
+        <footer className="pb-10 pt-2">
+          <div className="reveal flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-5 py-5 shadow-[var(--theme-shadow-panel)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <p className="text-[0.68rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Learn More</p>
+              <p className="mt-2 text-sm leading-7 text-[var(--theme-text-secondary)] sm:text-base">
+                Want the simple version of the engine? Read how the map works, what the math is doing,
+                and what kind of accuracy you should expect.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/how-it-works"
+                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white transition-colors duration-200 hover:border-[var(--theme-border-strong)] hover:bg-white/[0.08]"
+              >
+                How It Works
+              </Link>
+              <Link
+                href="/explore"
+                className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--theme-accent-strong),var(--theme-accent))] px-5 py-3 text-sm font-semibold text-[#04110b] shadow-[var(--theme-shadow-accent)] transition-transform hover:scale-[1.01]"
+              >
+                Start Exploring
+              </Link>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   );

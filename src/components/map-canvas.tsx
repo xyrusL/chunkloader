@@ -126,6 +126,10 @@ const MAX_RENDER_TILES = 96;
 const WHEEL_ZOOM_SENSITIVITY = 0.0012;
 const MAX_WHEEL_DELTA = 240;
 
+function getRenderTileKey(sampleScale: number, tileX: number, tileZ: number, signature: string) {
+  return `${signature}|${sampleScale}:${tileX}:${tileZ}`;
+}
+
 export default function MapCanvas({
   seed,
   edition,
@@ -270,10 +274,6 @@ export default function MapCanvas({
       highlightBiomes: biomeOverlay.highlightBiomes,
       selectedBiomes,
     };
-  }
-
-  function getRenderTileKey(sampleScale: number, tileX: number, tileZ: number, signature: string) {
-    return `${signature}|${sampleScale}:${tileX}:${tileZ}`;
   }
 
   function getVisibleTileRange(viewportState: MapViewportState): TileRange {
