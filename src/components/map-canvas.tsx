@@ -1068,6 +1068,16 @@ export default function MapCanvas({
   }
 
   const displayViewport = viewport;
+  const displayTileConfig = getTileConfig();
+  const canShowWorldOverlay = (worldX: number, worldZ: number) => (
+    isWorldPositionReady(
+      displayViewport,
+      displayTileConfig,
+      worldX,
+      worldZ,
+      renderTileCacheRef.current
+    )
+  );
 
   const worldBounds = getWorldBounds(displayViewport);
   const pixelsPerBlock = getPixelsPerBlock(displayViewport);
@@ -1081,7 +1091,12 @@ export default function MapCanvas({
     : [];
   const overlayTargets: OverlayTarget[] = [];
 
-  if (allowOverworldMarkers && markerSettings.spawnPoint && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, displayViewport)) {
+  if (
+    allowOverworldMarkers
+    && markerSettings.spawnPoint
+    && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, displayViewport)
+    && canShowWorldOverlay(0, 0)
+  ) {
     overlayTargets.push({
       ...createOverlayCommand("spawn", "Spawn Point", 0, 0),
       x: spawnMarkerPosition.x,
@@ -1093,7 +1108,7 @@ export default function MapCanvas({
 
   for (const marker of visibleStructureMarkers) {
     const position = worldToScreen(displayViewport, marker.x, marker.z);
-    if (!isOverlayVisible(position.x, position.y, displayViewport)) {
+    if (!isOverlayVisible(position.x, position.y, displayViewport) || !canShowWorldOverlay(marker.x, marker.z)) {
       continue;
     }
 
@@ -1111,7 +1126,7 @@ export default function MapCanvas({
   if (biomeOverlay.highlightBiomes) {
     for (const label of visibleBiomeLabels) {
       const position = worldToScreen(displayViewport, label.worldX, label.worldZ);
-      if (!isOverlayVisible(position.x, position.y, displayViewport)) {
+      if (!isOverlayVisible(position.x, position.y, displayViewport) || !canShowWorldOverlay(label.worldX, label.worldZ)) {
         continue;
       }
 
@@ -1154,16 +1169,18 @@ export default function MapCanvas({
       {hasGenerator && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {visibleSlimeChunks.map((chunk) => (
-            <div
-              key={`${chunk.chunkX}:${chunk.chunkZ}`}
-              className="absolute border border-emerald-300/40 bg-emerald-400/10"
-              style={{
-                left: chunk.left,
-                top: chunk.top,
-                width: chunk.size,
-                height: chunk.size,
-              }}
-            />
+            canShowWorldOverlay(chunk.chunkX * 16 + 8, chunk.chunkZ * 16 + 8) ? (
+              <div
+                key={`${chunk.chunkX}:${chunk.chunkZ}`}
+                className="absolute border border-emerald-300/40 bg-emerald-400/10"
+                style={{
+                  left: chunk.left,
+                  top: chunk.top,
+                  width: chunk.size,
+                  height: chunk.size,
+                }}
+              />
+            ) : null
           ))}
 
           {overlayTargets.map((target) => (
@@ -1180,7 +1197,10 @@ export default function MapCanvas({
 
           {selectedOverlay && (() => {
             const position = worldToScreen(displayViewport, selectedOverlay.worldX, selectedOverlay.worldZ);
-            if (!isOverlayVisible(position.x, position.y, displayViewport)) {
+            if (
+              !isOverlayVisible(position.x, position.y, displayViewport)
+              || !canShowWorldOverlay(selectedOverlay.worldX, selectedOverlay.worldZ)
+            ) {
               return null;
             }
 
@@ -1355,6 +1375,22 @@ function worldToScreen(viewport: MapViewportState, worldX: number, worldZ: numbe
     x: worldX * pixelsPerBlock + viewport.offsetX,
     y: worldZ * pixelsPerBlock + viewport.offsetY,
   };
+}
+
+function isWorldPositionReady(
+  viewport: MapViewportState,
+  config: TileRenderConfig,
+  worldX: number,
+  worldZ: number,
+  tileCache: Map<string, RenderTile>
+) {
+  const cellX = Math.floor(worldX / viewport.sampleScale);
+  const cellZ = Math.floor(worldZ / viewport.sampleScale);
+  const tileX = Math.floor(cellX / RENDER_TILE_CELLS);
+  const tileZ = Math.floor(cellZ / RENDER_TILE_CELLS);
+  const tile = tileCache.get(getRenderTileKey(viewport.sampleScale, tileX, tileZ, config.signature));
+
+  return tile?.status === "ready";
 }
 
 function isOverlayVisible(x: number, y: number, viewport: MapViewportState) {
