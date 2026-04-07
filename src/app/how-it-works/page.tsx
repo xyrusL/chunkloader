@@ -1,4 +1,5 @@
-import type { Metadata, ReactNode } from "react";
+import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   CompassRoseIcon,
@@ -14,6 +15,19 @@ import {
 } from "@/components/ui/icons";
 import { createPageMetadata } from "@/lib/page-metadata";
 
+type StepAccent = "emerald" | "sky" | "teal" | "amber" | "violet" | "pink";
+
+type StoryStep = {
+  id: string;
+  eyebrow: string;
+  title: string;
+  body: string;
+  note: string;
+  quickView: [string, string, string];
+  icon: (props: { className?: string }) => ReactNode;
+  accent: StepAccent;
+};
+
 export const metadata: Metadata = createPageMetadata({
   title: "How ChunkLoader Works",
   description:
@@ -23,7 +37,7 @@ export const metadata: Metadata = createPageMetadata({
   imageAlt: "ChunkLoader guide page explaining how the Minecraft seed map engine works.",
 });
 
-const STORY_STEPS = [
+const STORY_STEPS: StoryStep[] = [
   {
     id: "seed",
     eyebrow: "Step 1",
