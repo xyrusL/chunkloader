@@ -38,34 +38,47 @@ interface MapCanvasProps {
 
 type RenderMode = "generation" | "settled" | "interaction";
 
-interface RenderJob {
-  token: number;
-  mode: RenderMode;
-  notifyComplete: boolean;
-  canvasWidth: number;
-  canvasHeight: number;
-  blockSize: number;
-  sampleScale: number;
-  cols: number;
-  rows: number;
-  startCellX: number;
-  startCellZ: number;
-  rowsRendered: number;
-  imageData: ImageData;
-  offscreenCanvas: HTMLCanvasElement;
-  offscreenContext: CanvasRenderingContext2D;
-  frameBudgetMs: number;
-  drawGrid: boolean;
-  drawAxis: boolean;
-  drawChunkAxis: boolean;
+type TileStatus = "queued" | "rendering" | "ready";
+
+interface TileRenderConfig {
+  signature: string;
   useTerrainModel: boolean;
   useTerrainShading: boolean;
   drawContours: boolean;
   elevatedBiomes: boolean;
-  offsetX: number;
-  offsetY: number;
+  highlightBiomes: boolean;
+  selectedBiomes: Set<Biome>;
+}
+
+interface RenderTile {
+  key: string;
+  sampleScale: number;
+  tileX: number;
+  tileZ: number;
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+  imageData: ImageData;
+  status: TileStatus;
+  rowsRendered: number;
+  config: TileRenderConfig;
   biomeLabels: VisibleBiomeLabel[];
   seenBiomeLabels: Set<Biome>;
+}
+
+interface TileRange {
+  minTileX: number;
+  maxTileX: number;
+  minTileZ: number;
+  maxTileZ: number;
+}
+
+interface RenderRequest {
+  token: number;
+  mode: RenderMode;
+  notifyComplete: boolean;
+  viewport: MapViewportState;
+  sampleScale: number;
+  requiredTileKeys: Set<string>;
 }
 
 interface VisibleBiomeLabel {
@@ -101,6 +114,9 @@ interface OverlayTarget extends SelectedOverlayCommand {
 
 const TILE_SIZE = 4;
 const SETTLE_DELAY_MS = 120;
+const RENDER_TILE_CELLS = 64;
+const RENDER_TILE_OVERSCAN = 1;
+const MAX_RENDER_TILES = 96;
 
 export default function MapCanvas({
   seed,
@@ -128,12 +144,17 @@ export default function MapCanvas({
   const settleTimeoutRef = useRef<number>(0);
   const renderTokenRef = useRef(0);
   const pendingRenderRef = useRef<{ mode: RenderMode; notifyComplete: boolean } | null>(null);
-  const renderJobRef = useRef<RenderJob | null>(null);
-  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const offscreenContextRef = useRef<CanvasRenderingContext2D | null>(null);
+  const renderQueueRef = useRef<string[]>([]);
+  const queuedTileKeysRef = useRef<Set<string>>(new Set());
+  const renderTileCacheRef = useRef<Map<string, RenderTile>>(new Map());
+  const activeRenderRequestRef = useRef<RenderRequest | null>(null);
+  const terrainSnapshotCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const terrainSnapshotViewportRef = useRef<MapViewportState | null>(null);
   const lowEndDeviceRef = useRef(false);
   const generationCompletePendingRef = useRef(false);
   const [canvasSize, setCanvasSize] = useState({ w: 800, h: 600 });
+  const [hasGenerator, setHasGenerator] = useState(false);
+  const [isLowEndDevice, setIsLowEndDevice] = useState(false);
   const [isRenderingMap, setIsRenderingMap] = useState(false);
   const [viewport, setViewport] = useState<MapViewportState>({
     offsetX: 0,
@@ -151,6 +172,7 @@ export default function MapCanvas({
 
   useEffect(() => {
     lowEndDeviceRef.current = detectLowEndDevice();
+    setIsLowEndDevice(lowEndDeviceRef.current);
   }, []);
 
   useEffect(() => {
@@ -183,65 +205,11 @@ export default function MapCanvas({
   }, []);
 
   useEffect(() => {
-    if (!isGenerating || !seed) {
-      return;
-    }
-
-    generatorRef.current = new BiomeGenerator(seed, edition, dimension);
-    generationCompletePendingRef.current = true;
-    offsetRef.current = { x: 0, y: 0 };
-    zoomRef.current = 1;
-    setVisibleBiomeLabels([]);
-    setSelectedOverlay(null);
-    setCopiedCommandKey(null);
-    setHoverTooltip(null);
-    scheduleRender("generation", true);
-  }, [dimension, edition, isGenerating, seed]);
-
-  useEffect(() => {
-    if (!generatorRef.current) {
-      return;
-    }
-
-    scheduleRender("settled");
-  }, [canvasSize, settings, biomeOverlay]);
-
-  useEffect(() => {
-    return () => {
-      cancelAnimationFrame(prepareFrameRef.current);
-      cancelAnimationFrame(renderFrameRef.current);
-      window.clearTimeout(settleTimeoutRef.current);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!settings.floatingTooltip) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHoverTooltip(null);
     }
   }, [settings.floatingTooltip]);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) {
-      return;
-    }
-
-    const handleNativeWheel = (event: WheelEvent) => {
-      if (!generatorRef.current) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      applyZoomFromWheel(event.deltaY, event.clientX, event.clientY);
-    };
-
-    element.addEventListener("wheel", handleNativeWheel, { passive: false });
-
-    return () => {
-      element.removeEventListener("wheel", handleNativeWheel);
-    };
-  }, []);
 
   function getLiveCanvasSize() {
     const containerSize = getElementSize(containerRef.current);
@@ -251,6 +219,467 @@ export default function MapCanvas({
       w: Math.max(containerSize.w, canvasSizeFromDom.w),
       h: Math.max(containerSize.h, canvasSizeFromDom.h),
     };
+  }
+
+  function syncViewportState() {
+    const { w, h } = getLiveCanvasSize();
+    const nextViewport = {
+      offsetX: offsetRef.current.x,
+      offsetY: offsetRef.current.y,
+      zoom: zoomRef.current,
+      sampleScale: getSampleScale(zoomRef.current, lowEndDeviceRef.current),
+      canvasWidth: w,
+      canvasHeight: h,
+    };
+
+    setViewport(nextViewport);
+    return nextViewport;
+  }
+
+  function getTileConfig(): TileRenderConfig {
+    const selectedBiomes = new Set(biomeOverlay.selectedBiomes);
+
+    return {
+      signature: [
+        settings.terrainEstimation ? "terrain:1" : "terrain:0",
+        settings.contourLines ? "contours:1" : "contours:0",
+        settings.biomesAtElevation ? "elevation:1" : "elevation:0",
+        biomeOverlay.highlightBiomes ? "highlight:1" : "highlight:0",
+        [...selectedBiomes].sort().join("|"),
+      ].join(";"),
+      useTerrainModel: settings.terrainEstimation || settings.contourLines || settings.biomesAtElevation,
+      useTerrainShading: settings.terrainEstimation,
+      drawContours: settings.contourLines,
+      elevatedBiomes: settings.biomesAtElevation,
+      highlightBiomes: biomeOverlay.highlightBiomes,
+      selectedBiomes,
+    };
+  }
+
+  function getRenderTileKey(sampleScale: number, tileX: number, tileZ: number, signature: string) {
+    return `${signature}|${sampleScale}:${tileX}:${tileZ}`;
+  }
+
+  function getVisibleTileRange(viewportState: MapViewportState): TileRange {
+    const blockSize = Math.max(1, TILE_SIZE * viewportState.zoom);
+    const startCellX = Math.floor(-viewportState.offsetX / blockSize);
+    const endCellX = Math.ceil((viewportState.canvasWidth - viewportState.offsetX) / blockSize);
+    const startCellZ = Math.floor(-viewportState.offsetY / blockSize);
+    const endCellZ = Math.ceil((viewportState.canvasHeight - viewportState.offsetY) / blockSize);
+
+    return {
+      minTileX: Math.floor(startCellX / RENDER_TILE_CELLS) - RENDER_TILE_OVERSCAN,
+      maxTileX: Math.floor(endCellX / RENDER_TILE_CELLS) + RENDER_TILE_OVERSCAN,
+      minTileZ: Math.floor(startCellZ / RENDER_TILE_CELLS) - RENDER_TILE_OVERSCAN,
+      maxTileZ: Math.floor(endCellZ / RENDER_TILE_CELLS) + RENDER_TILE_OVERSCAN,
+    };
+  }
+
+  function ensureTerrainSnapshotCanvas(width: number, height: number) {
+    if (!terrainSnapshotCanvasRef.current) {
+      terrainSnapshotCanvasRef.current = document.createElement("canvas");
+    }
+
+    const snapshotCanvas = terrainSnapshotCanvasRef.current;
+    if (snapshotCanvas.width !== width || snapshotCanvas.height !== height) {
+      snapshotCanvas.width = width;
+      snapshotCanvas.height = height;
+    }
+
+    return snapshotCanvas;
+  }
+
+  function drawTerrainSnapshotFallback(context: CanvasRenderingContext2D, viewportState: MapViewportState) {
+    const snapshotCanvas = terrainSnapshotCanvasRef.current;
+    const snapshotViewport = terrainSnapshotViewportRef.current;
+    if (!snapshotCanvas || !snapshotViewport) {
+      return;
+    }
+
+    const currentPixelsPerBlock = getPixelsPerBlock(viewportState);
+    const previousPixelsPerBlock = getPixelsPerBlock(snapshotViewport);
+    if (previousPixelsPerBlock <= 0) {
+      return;
+    }
+
+    const scale = currentPixelsPerBlock / previousPixelsPerBlock;
+    const drawWidth = snapshotViewport.canvasWidth * scale;
+    const drawHeight = snapshotViewport.canvasHeight * scale;
+    const drawX = viewportState.offsetX - snapshotViewport.offsetX * scale;
+    const drawY = viewportState.offsetY - snapshotViewport.offsetY * scale;
+
+    context.drawImage(snapshotCanvas, drawX, drawY, drawWidth, drawHeight);
+  }
+
+  function saveTerrainSnapshot(viewportState: MapViewportState, context: CanvasRenderingContext2D) {
+    const snapshotCanvas = ensureTerrainSnapshotCanvas(viewportState.canvasWidth, viewportState.canvasHeight);
+    const snapshotContext = snapshotCanvas.getContext("2d");
+    if (!snapshotContext) {
+      return;
+    }
+
+    snapshotContext.clearRect(0, 0, snapshotCanvas.width, snapshotCanvas.height);
+    snapshotContext.drawImage(context.canvas, 0, 0);
+    terrainSnapshotViewportRef.current = viewportState;
+  }
+
+  function markTileUsed(tile: RenderTile) {
+    renderTileCacheRef.current.delete(tile.key);
+    renderTileCacheRef.current.set(tile.key, tile);
+  }
+
+  function pruneRenderTileCache() {
+    while (renderTileCacheRef.current.size > MAX_RENDER_TILES) {
+      const firstEntry = renderTileCacheRef.current.entries().next().value as [string, RenderTile] | undefined;
+      if (!firstEntry) {
+        break;
+      }
+
+      const [key, tile] = firstEntry;
+      if (tile.status === "rendering") {
+        renderTileCacheRef.current.delete(key);
+        renderTileCacheRef.current.set(key, tile);
+        continue;
+      }
+
+      renderTileCacheRef.current.delete(key);
+    }
+  }
+
+  function createRenderTile(sampleScale: number, tileX: number, tileZ: number, config: TileRenderConfig): RenderTile {
+    const canvas = document.createElement("canvas");
+    canvas.width = RENDER_TILE_CELLS;
+    canvas.height = RENDER_TILE_CELLS;
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) {
+      throw new Error("Unable to allocate render tile");
+    }
+
+    return {
+      key: getRenderTileKey(sampleScale, tileX, tileZ, config.signature),
+      sampleScale,
+      tileX,
+      tileZ,
+      canvas,
+      context,
+      imageData: context.createImageData(RENDER_TILE_CELLS, RENDER_TILE_CELLS),
+      status: "queued",
+      rowsRendered: 0,
+      config,
+      biomeLabels: [],
+      seenBiomeLabels: new Set<Biome>(),
+    };
+  }
+
+  function getOrCreateRenderTile(sampleScale: number, tileX: number, tileZ: number, config: TileRenderConfig) {
+    const key = getRenderTileKey(sampleScale, tileX, tileZ, config.signature);
+    const cachedTile = renderTileCacheRef.current.get(key);
+    if (cachedTile) {
+      markTileUsed(cachedTile);
+      return cachedTile;
+    }
+
+    const tile = createRenderTile(sampleScale, tileX, tileZ, config);
+    renderTileCacheRef.current.set(key, tile);
+    pruneRenderTileCache();
+    return tile;
+  }
+
+  function enqueueTile(tile: RenderTile) {
+    if (tile.status === "ready" || queuedTileKeysRef.current.has(tile.key)) {
+      return;
+    }
+
+    tile.status = "queued";
+    renderQueueRef.current.push(tile.key);
+    queuedTileKeysRef.current.add(tile.key);
+  }
+
+  function renderTileRows(tile: RenderTile, maxRowsPerFrame: number) {
+    const generator = generatorRef.current;
+    if (!generator) {
+      return;
+    }
+
+    tile.status = "rendering";
+    const data = tile.imageData.data;
+    const startCellX = tile.tileX * RENDER_TILE_CELLS;
+    const startCellZ = tile.tileZ * RENDER_TILE_CELLS;
+    let rowsProcessed = 0;
+
+    while (tile.rowsRendered < RENDER_TILE_CELLS && rowsProcessed < maxRowsPerFrame) {
+      const row = tile.rowsRendered;
+      const sampleZ = (startCellZ + row) * tile.sampleScale;
+
+      for (let col = 0; col < RENDER_TILE_CELLS; col++) {
+        const sampleX = (startCellX + col) * tile.sampleScale;
+        const terrain = tile.config.useTerrainModel
+          ? generator.getTerrainSampleFromTile(sampleX, sampleZ, tile.sampleScale)
+          : null;
+        const biomeIndex = terrain?.biomeIndex ?? generator.getBiomeIndexFromTile(sampleX, sampleZ, tile.sampleScale);
+        const biome = BIOME_VALUES[biomeIndex];
+        const paletteOffset = biomeIndex * 4;
+        const pixelOffset = (row * RENDER_TILE_CELLS + col) * 4;
+        let red = BIOME_PALETTE[paletteOffset];
+        let green = BIOME_PALETTE[paletteOffset + 1];
+        let blue = BIOME_PALETTE[paletteOffset + 2];
+
+        if (terrain) {
+          ({ red, green, blue } = applyTerrainStyle({
+            biome,
+            red,
+            green,
+            blue,
+            terrain,
+            terrainEstimation: tile.config.useTerrainShading,
+            contourLines: tile.config.drawContours,
+            biomesAtElevation: tile.config.elevatedBiomes,
+          }));
+        }
+
+        if (tile.config.highlightBiomes && tile.config.selectedBiomes.has(biome)) {
+          red = brightenChannel(red, 32);
+          green = brightenChannel(green, 26);
+          blue = brightenChannel(blue, 12);
+
+          if (!tile.seenBiomeLabels.has(biome)) {
+            tile.biomeLabels.push({
+              biome,
+              worldX: sampleX,
+              worldZ: sampleZ,
+              color: `rgb(${red} ${green} ${blue})`,
+            });
+            tile.seenBiomeLabels.add(biome);
+          }
+        }
+
+        data[pixelOffset] = red;
+        data[pixelOffset + 1] = green;
+        data[pixelOffset + 2] = blue;
+        data[pixelOffset + 3] = 255;
+      }
+
+      tile.rowsRendered += 1;
+      rowsProcessed += 1;
+    }
+
+    if (tile.rowsRendered >= RENDER_TILE_CELLS) {
+      tile.context.putImageData(tile.imageData, 0, 0);
+      tile.status = "ready";
+      markTileUsed(tile);
+    }
+  }
+
+  function collectVisibleBiomeLabels(viewportState: MapViewportState, sampleScale: number, config: TileRenderConfig) {
+    if (!config.highlightBiomes) {
+      return [] as VisibleBiomeLabel[];
+    }
+
+    const labels: VisibleBiomeLabel[] = [];
+    const seen = new Set<Biome>();
+    const tileRange = getVisibleTileRange(viewportState);
+
+    for (let tileZ = tileRange.minTileZ; tileZ <= tileRange.maxTileZ; tileZ++) {
+      for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
+        const tile = renderTileCacheRef.current.get(getRenderTileKey(sampleScale, tileX, tileZ, config.signature));
+        if (!tile || tile.status !== "ready") {
+          continue;
+        }
+
+        for (const label of tile.biomeLabels) {
+          if (seen.has(label.biome)) {
+            continue;
+          }
+
+          const position = worldToScreen(viewportState, label.worldX, label.worldZ);
+          if (
+            position.x > 24
+            && position.x < viewportState.canvasWidth - 24
+            && position.y > 24
+            && position.y < viewportState.canvasHeight - 24
+          ) {
+            labels.push(label);
+            seen.add(label.biome);
+          }
+        }
+      }
+    }
+
+    return labels;
+  }
+
+  function drawCanvas(viewportState: MapViewportState, mode: RenderMode) {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    if (canvas.width !== viewportState.canvasWidth || canvas.height !== viewportState.canvasHeight) {
+      canvas.width = viewportState.canvasWidth;
+      canvas.height = viewportState.canvasHeight;
+    }
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.imageSmoothingEnabled = false;
+    drawTerrainSnapshotFallback(context, viewportState);
+
+    const tileRange = getVisibleTileRange(viewportState);
+    const tileConfig = getTileConfig();
+    const blockSize = Math.max(1, TILE_SIZE * viewportState.zoom);
+
+    for (let tileZ = tileRange.minTileZ; tileZ <= tileRange.maxTileZ; tileZ++) {
+      for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
+        const tile = renderTileCacheRef.current.get(getRenderTileKey(viewportState.sampleScale, tileX, tileZ, tileConfig.signature));
+        if (!tile || tile.status !== "ready") {
+          continue;
+        }
+
+        markTileUsed(tile);
+        context.drawImage(
+          tile.canvas,
+          tile.tileX * RENDER_TILE_CELLS * blockSize + viewportState.offsetX,
+          tile.tileZ * RENDER_TILE_CELLS * blockSize + viewportState.offsetY,
+          RENDER_TILE_CELLS * blockSize,
+          RENDER_TILE_CELLS * blockSize
+        );
+      }
+    }
+
+    saveTerrainSnapshot(viewportState, context);
+
+    if (settings.showGrid) {
+      drawGrid(context, viewportState);
+    }
+
+    if (settings.showGrid && mode === "settled") {
+      drawAxisLabels(context, viewportState, settings);
+    }
+  }
+
+  function finalizeRenderRequest(token: number) {
+    const request = activeRenderRequestRef.current;
+    if (!request || request.token !== token) {
+      return;
+    }
+
+    for (const key of request.requiredTileKeys) {
+      const tile = renderTileCacheRef.current.get(key);
+      if (!tile || tile.status !== "ready") {
+        return;
+      }
+    }
+
+    drawCanvas(request.viewport, request.mode);
+    if (request.mode === "settled") {
+      setVisibleBiomeLabels(collectVisibleBiomeLabels(request.viewport, request.sampleScale, getTileConfig()));
+    }
+
+    if (request.mode !== "interaction") {
+      setIsRenderingMap(false);
+    }
+
+    if (request.notifyComplete || generationCompletePendingRef.current) {
+      generationCompletePendingRef.current = false;
+      onGenerationComplete();
+    }
+
+    activeRenderRequestRef.current = null;
+  }
+
+  function processRenderQueue() {
+    renderFrameRef.current = 0;
+    const maxTilesPerFrame = lowEndDeviceRef.current ? 1 : 2;
+    const maxRowsPerTile = lowEndDeviceRef.current ? 8 : 16;
+    let tilesProcessed = 0;
+
+    while (renderQueueRef.current.length > 0 && tilesProcessed < maxTilesPerFrame) {
+      const key = renderQueueRef.current.shift();
+      if (!key) {
+        continue;
+      }
+
+      queuedTileKeysRef.current.delete(key);
+      const tile = renderTileCacheRef.current.get(key);
+      if (!tile || tile.status === "ready") {
+        continue;
+      }
+
+      renderTileRows(tile, maxRowsPerTile);
+      const refreshedTile = renderTileCacheRef.current.get(key);
+      if (refreshedTile && refreshedTile.status !== "ready") {
+        enqueueTile(refreshedTile);
+      }
+
+      tilesProcessed += 1;
+    }
+
+    const activeRequest = activeRenderRequestRef.current;
+    if (activeRequest) {
+      drawCanvas(activeRequest.viewport, activeRequest.mode);
+      finalizeRenderRequest(activeRequest.token);
+    }
+
+    if (renderQueueRef.current.length > 0) {
+      startRenderLoop();
+    }
+  }
+
+  function startRenderLoop() {
+    if (renderFrameRef.current !== 0) {
+      return;
+    }
+
+    renderFrameRef.current = requestAnimationFrame(() => {
+      processRenderQueue();
+    });
+  }
+
+  function beginRender(mode: RenderMode, notifyComplete: boolean) {
+    const canvas = canvasRef.current;
+    if (!canvas || !generatorRef.current || !canvas.getContext("2d")) {
+      return;
+    }
+
+    const viewportState = syncViewportState();
+    const tileConfig = getTileConfig();
+    const tileRange = getVisibleTileRange(viewportState);
+    const requiredTileKeys = new Set<string>();
+    let missingTiles = 0;
+
+    for (let tileZ = tileRange.minTileZ; tileZ <= tileRange.maxTileZ; tileZ++) {
+      for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
+        const tile = getOrCreateRenderTile(viewportState.sampleScale, tileX, tileZ, tileConfig);
+        requiredTileKeys.add(tile.key);
+        if (tile.status !== "ready") {
+          missingTiles += 1;
+          enqueueTile(tile);
+        }
+      }
+    }
+
+    activeRenderRequestRef.current = {
+      token: ++renderTokenRef.current,
+      mode,
+      notifyComplete,
+      viewport: viewportState,
+      sampleScale: viewportState.sampleScale,
+      requiredTileKeys,
+    };
+
+    setIsRenderingMap(mode !== "interaction" && missingTiles > 0);
+    drawCanvas(viewportState, mode);
+
+    if (missingTiles === 0) {
+      finalizeRenderRequest(activeRenderRequestRef.current.token);
+      return;
+    }
+
+    startRenderLoop();
   }
 
   function scheduleRender(mode: RenderMode, notifyComplete = false) {
@@ -265,226 +694,35 @@ export default function MapCanvas({
     });
   }
 
-  function beginRender(mode: RenderMode, notifyComplete: boolean) {
-    const canvas = canvasRef.current;
-    if (!canvas || !generatorRef.current) {
-      return;
-    }
-
-    if (!canvas.getContext("2d")) {
-      return;
-    }
-
+  function invalidateRenderTiles() {
+    renderTileCacheRef.current.clear();
+    renderQueueRef.current = [];
+    queuedTileKeysRef.current.clear();
+    activeRenderRequestRef.current = null;
+    terrainSnapshotCanvasRef.current = null;
+    terrainSnapshotViewportRef.current = null;
     cancelAnimationFrame(renderFrameRef.current);
-
-    const { w, h } = getLiveCanvasSize();
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w;
-      canvas.height = h;
-    }
-
-    const zoom = zoomRef.current;
-    const blockSize = Math.max(1, TILE_SIZE * zoom);
-    const sampleScale = getSampleScale(mode, zoom, lowEndDeviceRef.current);
-    const padding = 1;
-    const startCellX = Math.floor(-offsetRef.current.x / blockSize) - padding;
-    const startCellZ = Math.floor(-offsetRef.current.y / blockSize) - padding;
-    const cols = Math.ceil(w / blockSize) + padding * 2 + 1;
-    const rows = Math.ceil(h / blockSize) + padding * 2 + 1;
-    const { canvas: offscreenCanvas, context: offscreenContext } = ensureOffscreenBuffer(cols, rows);
-    const imageData = offscreenContext.createImageData(cols, rows);
-    const token = ++renderTokenRef.current;
-
-    renderJobRef.current = {
-      token,
-      mode,
-      notifyComplete,
-      canvasWidth: w,
-      canvasHeight: h,
-      blockSize,
-      sampleScale,
-      cols,
-      rows,
-      startCellX,
-      startCellZ,
-      rowsRendered: 0,
-      imageData,
-      offscreenCanvas,
-      offscreenContext,
-      frameBudgetMs: getFrameBudget(mode, lowEndDeviceRef.current),
-      drawGrid: settings.showGrid,
-      drawAxis: settings.showGrid && mode === "settled",
-      drawChunkAxis: settings.showGrid && settings.chunkCoordinates && mode === "settled",
-      useTerrainModel: settings.terrainEstimation || settings.contourLines || settings.biomesAtElevation,
-      useTerrainShading: settings.terrainEstimation,
-      drawContours: settings.contourLines && mode === "settled",
-      elevatedBiomes: settings.biomesAtElevation,
-      offsetX: offsetRef.current.x,
-      offsetY: offsetRef.current.y,
-      biomeLabels: [],
-      seenBiomeLabels: new Set(),
-    };
-
-    setIsRenderingMap(mode !== "interaction");
-
-    if (mode === "interaction") {
-      continueRender(token);
-      return;
-    }
-
-    renderFrameRef.current = requestAnimationFrame(() => continueRender(token));
+    renderFrameRef.current = 0;
+    setVisibleBiomeLabels([]);
   }
 
-  function continueRender(token: number) {
-    const job = renderJobRef.current;
-    const generator = generatorRef.current;
-    if (!job || !generator || job.token !== token) {
-      return;
+  function resetRenderPipeline(clearTiles: boolean) {
+    cancelAnimationFrame(prepareFrameRef.current);
+    cancelAnimationFrame(renderFrameRef.current);
+    prepareFrameRef.current = 0;
+    renderFrameRef.current = 0;
+    pendingRenderRef.current = null;
+    renderQueueRef.current = [];
+    queuedTileKeysRef.current.clear();
+    activeRenderRequestRef.current = null;
+
+    if (clearTiles) {
+      renderTileCacheRef.current.clear();
+      terrainSnapshotCanvasRef.current = null;
+      terrainSnapshotViewportRef.current = null;
     }
 
-    const startedAt = performance.now();
-    const data = job.imageData.data;
-
-    while (job.rowsRendered < job.rows && performance.now() - startedAt < job.frameBudgetMs) {
-      const row = job.rowsRendered;
-      const sampleZ = (job.startCellZ + row) * job.sampleScale;
-      for (let col = 0; col < job.cols; col++) {
-        const sampleX = (job.startCellX + col) * job.sampleScale;
-        const terrain = job.useTerrainModel
-          ? generator.getTerrainSampleFromTile(sampleX, sampleZ, job.sampleScale)
-          : null;
-        const biomeIndex = terrain?.biomeIndex ?? generator.getBiomeIndexFromTile(sampleX, sampleZ, job.sampleScale);
-        const biome = BIOME_VALUES[biomeIndex];
-        const paletteOffset = biomeIndex * 4;
-        const pixelOffset = (row * job.cols + col) * 4;
-        let red = BIOME_PALETTE[paletteOffset];
-        let green = BIOME_PALETTE[paletteOffset + 1];
-        let blue = BIOME_PALETTE[paletteOffset + 2];
-
-        if (terrain) {
-          ({ red, green, blue } = applyTerrainStyle({
-            biome,
-            red,
-            green,
-            blue,
-            terrain,
-            terrainEstimation: job.useTerrainShading,
-            contourLines: job.drawContours,
-            biomesAtElevation: job.elevatedBiomes,
-          }));
-        }
-
-        if (biomeOverlay.highlightBiomes && biomeOverlay.selectedBiomes.has(biome)) {
-          red = brightenChannel(red, 32);
-          green = brightenChannel(green, 26);
-          blue = brightenChannel(blue, 12);
-
-          if (!job.seenBiomeLabels.has(biome)) {
-            const screenX = (job.startCellX + col + 0.5) * job.blockSize + job.offsetX;
-            const screenY = (job.startCellZ + row + 0.5) * job.blockSize + job.offsetY;
-
-            if (
-              screenX > 24
-              && screenX < job.canvasWidth - 24
-              && screenY > 24
-              && screenY < job.canvasHeight - 24
-            ) {
-              job.biomeLabels.push({
-                biome,
-                worldX: sampleX,
-                worldZ: sampleZ,
-                color: `rgb(${red} ${green} ${blue})`,
-              });
-              job.seenBiomeLabels.add(biome);
-            }
-          }
-        }
-
-        data[pixelOffset] = red;
-        data[pixelOffset + 1] = green;
-        data[pixelOffset + 2] = blue;
-        data[pixelOffset + 3] = 255;
-      }
-      job.rowsRendered += 1;
-    }
-
-    const isComplete = job.rowsRendered >= job.rows;
-    if (isComplete) {
-      job.offscreenContext.putImageData(job.imageData, 0, 0);
-      drawFrame(job);
-      setViewport({
-        offsetX: job.offsetX,
-        offsetY: job.offsetY,
-        zoom: job.blockSize / TILE_SIZE,
-        sampleScale: job.sampleScale,
-        canvasWidth: job.canvasWidth,
-        canvasHeight: job.canvasHeight,
-      });
-    }
-
-    if (!isComplete) {
-      renderFrameRef.current = requestAnimationFrame(() => continueRender(token));
-      return;
-    }
-
-    renderJobRef.current = null;
     setIsRenderingMap(false);
-    setVisibleBiomeLabels(job.biomeLabels);
-
-    if (job.notifyComplete || generationCompletePendingRef.current) {
-      generationCompletePendingRef.current = false;
-      onGenerationComplete();
-    }
-  }
-
-  function ensureOffscreenBuffer(width: number, height: number) {
-    if (!offscreenCanvasRef.current) {
-      offscreenCanvasRef.current = document.createElement("canvas");
-      offscreenContextRef.current = offscreenCanvasRef.current.getContext("2d", { alpha: false });
-    }
-
-    const offscreenCanvas = offscreenCanvasRef.current;
-    const offscreenContext = offscreenContextRef.current;
-    if (!offscreenCanvas || !offscreenContext) {
-      throw new Error("Unable to allocate offscreen canvas");
-    }
-
-    if (offscreenCanvas.width !== width || offscreenCanvas.height !== height) {
-      offscreenCanvas.width = width;
-      offscreenCanvas.height = height;
-    }
-
-    return { canvas: offscreenCanvas, context: offscreenContext };
-  }
-
-  function drawFrame(job: RenderJob) {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.imageSmoothingEnabled = false;
-    context.drawImage(
-      job.offscreenCanvas,
-      job.startCellX * job.blockSize + job.offsetX,
-      job.startCellZ * job.blockSize + job.offsetY,
-      job.cols * job.blockSize,
-      job.rows * job.blockSize
-    );
-
-    if (job.drawGrid) {
-      drawGrid(context, job);
-    }
-
-    if (job.drawAxis) {
-      drawAxisLabels(context, job, settings);
-    }
   }
 
   function queueSettledRender() {
@@ -530,7 +768,7 @@ export default function MapCanvas({
       const rect = canvasRef.current.getBoundingClientRect();
       const px = event.clientX - rect.left;
       const py = event.clientY - rect.top;
-      const hoverScale = getSampleScale("settled", zoomRef.current, lowEndDeviceRef.current);
+      const hoverScale = getSampleScale(zoomRef.current, lowEndDeviceRef.current);
       const blockSize = Math.max(1, TILE_SIZE * zoomRef.current);
       const worldX = Math.floor((px - offsetRef.current.x) / blockSize) * hoverScale;
       const worldZ = Math.floor((py - offsetRef.current.y) / blockSize) * hoverScale;
@@ -568,6 +806,8 @@ export default function MapCanvas({
     offsetRef.current.x += dx;
     offsetRef.current.y += dy;
 
+    const nextViewport = syncViewportState();
+    drawCanvas(nextViewport, "interaction");
     scheduleRender("interaction");
     queueSettledRender();
   }
@@ -625,9 +865,93 @@ export default function MapCanvas({
     }
 
     zoomRef.current = newZoom;
+    const nextViewport = syncViewportState();
+    drawCanvas(nextViewport, "interaction");
     scheduleRender("interaction");
     queueSettledRender();
   }
+
+  useEffect(() => {
+    if (!isGenerating || !seed) {
+      return;
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    resetRenderPipeline(true);
+    generatorRef.current = new BiomeGenerator(seed, edition, dimension);
+    setHasGenerator(true);
+    generationCompletePendingRef.current = true;
+    offsetRef.current = { x: 0, y: 0 };
+    zoomRef.current = 1;
+    setVisibleBiomeLabels([]);
+    setSelectedOverlay(null);
+    setCopiedCommandKey(null);
+    setHoverTooltip(null);
+    setHoveredOverlayKey(null);
+    const nextViewport = syncViewportState();
+    drawCanvas(nextViewport, "generation");
+    scheduleRender("generation", true);
+  }, [dimension, edition, isGenerating, seed]);
+
+  useEffect(() => {
+    if (!generatorRef.current) {
+      return;
+    }
+
+    const nextViewport = syncViewportState();
+    drawCanvas(nextViewport, "settled");
+    scheduleRender("settled");
+  }, [canvasSize]);
+
+  const biomeOverlayKey = [...biomeOverlay.selectedBiomes].sort().join(",");
+
+  useEffect(() => {
+    if (!generatorRef.current) {
+      return;
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    invalidateRenderTiles();
+    const nextViewport = syncViewportState();
+    drawCanvas(nextViewport, "settled");
+    scheduleRender("settled");
+  }, [
+    settings.terrainEstimation,
+    settings.contourLines,
+    settings.biomesAtElevation,
+    biomeOverlay.highlightBiomes,
+    biomeOverlayKey,
+  ]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      if (!generatorRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      applyZoomFromWheel(event.deltaY, event.clientX, event.clientY);
+    };
+
+    element.addEventListener("wheel", handleNativeWheel, { passive: false });
+
+    return () => {
+      element.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      resetRenderPipeline(false);
+      window.clearTimeout(settleTimeoutRef.current);
+    };
+  }, []);
 
   async function handleCopyCommand(command: string, key: string) {
     try {
@@ -643,19 +967,30 @@ export default function MapCanvas({
     }
   }
 
-  const worldBounds = getWorldBounds(viewport);
-  const pixelsPerBlock = getPixelsPerBlock(viewport);
-  const spawnMarkerPosition = worldToScreen(viewport, 0, 0);
+  const displayViewport: MapViewportState = hasGenerator
+    ? {
+      offsetX: offsetRef.current.x,
+      offsetY: offsetRef.current.y,
+      zoom: zoomRef.current,
+      sampleScale: getSampleScale(zoomRef.current, lowEndDeviceRef.current),
+      canvasWidth: canvasSize.w,
+      canvasHeight: canvasSize.h,
+    }
+    : viewport;
+
+  const worldBounds = getWorldBounds(displayViewport);
+  const pixelsPerBlock = getPixelsPerBlock(displayViewport);
+  const spawnMarkerPosition = worldToScreen(displayViewport, 0, 0);
   const allowOverworldMarkers = dimension === "overworld";
   const visibleStructureMarkers = seed && allowOverworldMarkers && markerSettings.structuresEnabled
     ? getVisibleStructureMarkers(seed, markerSettings.selectedStructures, worldBounds).slice(0, 18)
     : [];
   const visibleSlimeChunks = seed && allowOverworldMarkers && markerSettings.slimeChunks && pixelsPerBlock * 16 >= 10
-    ? getVisibleSlimeChunkRects(seed, worldBounds, viewport)
+    ? getVisibleSlimeChunkRects(seed, worldBounds, displayViewport)
     : [];
   const overlayTargets: OverlayTarget[] = [];
 
-  if (allowOverworldMarkers && markerSettings.spawnPoint && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, viewport)) {
+  if (allowOverworldMarkers && markerSettings.spawnPoint && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, displayViewport)) {
     overlayTargets.push({
       ...createOverlayCommand("spawn", "Spawn Point", 0, 0),
       x: spawnMarkerPosition.x,
@@ -666,8 +1001,8 @@ export default function MapCanvas({
   }
 
   for (const marker of visibleStructureMarkers) {
-    const position = worldToScreen(viewport, marker.x, marker.z);
-    if (!isOverlayVisible(position.x, position.y, viewport)) {
+    const position = worldToScreen(displayViewport, marker.x, marker.z);
+    if (!isOverlayVisible(position.x, position.y, displayViewport)) {
       continue;
     }
 
@@ -684,8 +1019,8 @@ export default function MapCanvas({
 
   if (biomeOverlay.highlightBiomes) {
     for (const label of visibleBiomeLabels) {
-      const position = worldToScreen(viewport, label.worldX, label.worldZ);
-      if (!isOverlayVisible(position.x, position.y, viewport)) {
+      const position = worldToScreen(displayViewport, label.worldX, label.worldZ);
+      if (!isOverlayVisible(position.x, position.y, displayViewport)) {
         continue;
       }
 
@@ -719,13 +1054,13 @@ export default function MapCanvas({
         }
       }}
       style={{
-        cursor: generatorRef.current ? (hoveredOverlayKey ? "pointer" : "grab") : "default",
+        cursor: hasGenerator ? (hoveredOverlayKey ? "pointer" : "grab") : "default",
         overscrollBehavior: "contain",
       }}
     >
       <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h} className="block h-full w-full" />
 
-      {generatorRef.current && (
+      {hasGenerator && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {visibleSlimeChunks.map((chunk) => (
             <div
@@ -753,8 +1088,8 @@ export default function MapCanvas({
           ))}
 
           {selectedOverlay && (() => {
-            const position = worldToScreen(viewport, selectedOverlay.worldX, selectedOverlay.worldZ);
-            if (!isOverlayVisible(position.x, position.y, viewport)) {
+            const position = worldToScreen(displayViewport, selectedOverlay.worldX, selectedOverlay.worldZ);
+            if (!isOverlayVisible(position.x, position.y, displayViewport)) {
               return null;
             }
 
@@ -803,7 +1138,7 @@ export default function MapCanvas({
         </div>
       )}
 
-      {!generatorRef.current && (
+      {!hasGenerator && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="space-y-4 text-center">
             <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-white/[0.03] text-emerald-300">
@@ -817,9 +1152,9 @@ export default function MapCanvas({
         </div>
       )}
 
-      {generatorRef.current && isRenderingMap && (
+      {hasGenerator && isRenderingMap && (
         <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/10 bg-black/35 px-3 py-1 text-xs text-white/70 backdrop-blur">
-          {lowEndDeviceRef.current ? "Optimized progressive render" : "Rendering map"}
+          {isLowEndDevice ? "Streaming visible tiles" : "Rendering visible tiles"}
         </div>
       )}
     </div>
@@ -1026,27 +1361,20 @@ function getCanvasElementSize(canvas: HTMLCanvasElement | null) {
   };
 }
 
-function drawGrid(context: CanvasRenderingContext2D, job: RenderJob) {
-  const pixelsPerBlock = getPixelsPerBlock({
-    offsetX: job.offsetX,
-    offsetY: job.offsetY,
-    zoom: job.blockSize / TILE_SIZE,
-    sampleScale: job.sampleScale,
-    canvasWidth: job.canvasWidth,
-    canvasHeight: job.canvasHeight,
-  });
+function drawGrid(context: CanvasRenderingContext2D, viewport: MapViewportState) {
+  const pixelsPerBlock = getPixelsPerBlock(viewport);
   const gridSize = getGridSpacing(pixelsPerBlock);
   const emphasisEvery = gridSize >= 16 ? 4 : 8;
-  const startWorldX = Math.floor((-job.offsetX / pixelsPerBlock) / gridSize) * gridSize;
-  const endWorldX = Math.ceil((job.canvasWidth - job.offsetX) / pixelsPerBlock / gridSize) * gridSize;
-  const startWorldZ = Math.floor((-job.offsetY / pixelsPerBlock) / gridSize) * gridSize;
-  const endWorldZ = Math.ceil((job.canvasHeight - job.offsetY) / pixelsPerBlock / gridSize) * gridSize;
+  const startWorldX = Math.floor((-viewport.offsetX / pixelsPerBlock) / gridSize) * gridSize;
+  const endWorldX = Math.ceil((viewport.canvasWidth - viewport.offsetX) / pixelsPerBlock / gridSize) * gridSize;
+  const startWorldZ = Math.floor((-viewport.offsetY / pixelsPerBlock) / gridSize) * gridSize;
+  const endWorldZ = Math.ceil((viewport.canvasHeight - viewport.offsetY) / pixelsPerBlock / gridSize) * gridSize;
 
   context.lineWidth = 1;
 
   for (let worldX = startWorldX; worldX <= endWorldX; worldX += gridSize) {
-    const screenX = worldX * pixelsPerBlock + job.offsetX;
-    if (screenX < -1 || screenX > job.canvasWidth + 1) {
+    const screenX = worldX * pixelsPerBlock + viewport.offsetX;
+    if (screenX < -1 || screenX > viewport.canvasWidth + 1) {
       continue;
     }
 
@@ -1060,13 +1388,13 @@ function drawGrid(context: CanvasRenderingContext2D, job: RenderJob) {
 
     context.beginPath();
     context.moveTo(screenX, 0);
-    context.lineTo(screenX, job.canvasHeight);
+    context.lineTo(screenX, viewport.canvasHeight);
     context.stroke();
   }
 
   for (let worldZ = startWorldZ; worldZ <= endWorldZ; worldZ += gridSize) {
-    const screenY = worldZ * pixelsPerBlock + job.offsetY;
-    if (screenY < -1 || screenY > job.canvasHeight + 1) {
+    const screenY = worldZ * pixelsPerBlock + viewport.offsetY;
+    if (screenY < -1 || screenY > viewport.canvasHeight + 1) {
       continue;
     }
 
@@ -1080,37 +1408,30 @@ function drawGrid(context: CanvasRenderingContext2D, job: RenderJob) {
 
     context.beginPath();
     context.moveTo(0, screenY);
-    context.lineTo(job.canvasWidth, screenY);
+    context.lineTo(viewport.canvasWidth, screenY);
     context.stroke();
   }
 }
 
 function drawAxisLabels(
   context: CanvasRenderingContext2D,
-  job: RenderJob,
+  viewport: MapViewportState,
   settings: MapSettingsState
 ) {
-  const pixelsPerBlock = getPixelsPerBlock({
-    offsetX: job.offsetX,
-    offsetY: job.offsetY,
-    zoom: job.blockSize / TILE_SIZE,
-    sampleScale: job.sampleScale,
-    canvasWidth: job.canvasWidth,
-    canvasHeight: job.canvasHeight,
-  });
-  const visibleWorldWidth = Math.ceil(job.canvasWidth / pixelsPerBlock);
-  const visibleWorldHeight = Math.ceil(job.canvasHeight / pixelsPerBlock);
+  const pixelsPerBlock = getPixelsPerBlock(viewport);
+  const visibleWorldWidth = Math.ceil(viewport.canvasWidth / pixelsPerBlock);
+  const visibleWorldHeight = Math.ceil(viewport.canvasHeight / pixelsPerBlock);
   const worldLabelStep = getAxisLabelStep(pixelsPerBlock);
-  const startWorldX = Math.floor(-job.offsetX / pixelsPerBlock);
-  const startWorldZ = Math.floor(-job.offsetY / pixelsPerBlock);
+  const startWorldX = Math.floor(-viewport.offsetX / pixelsPerBlock);
+  const startWorldZ = Math.floor(-viewport.offsetY / pixelsPerBlock);
   const firstLabelX = Math.ceil(startWorldX / worldLabelStep) * worldLabelStep;
   const firstLabelZ = Math.ceil(startWorldZ / worldLabelStep) * worldLabelStep;
 
   context.font = "11px Inter, sans-serif";
 
   for (let worldX = firstLabelX; worldX <= startWorldX + visibleWorldWidth + worldLabelStep; worldX += worldLabelStep) {
-    const screenX = worldX * pixelsPerBlock + job.offsetX;
-    if (screenX < -40 || screenX > job.canvasWidth + 40) {
+    const screenX = worldX * pixelsPerBlock + viewport.offsetX;
+    if (screenX < -40 || screenX > viewport.canvasWidth + 40) {
       continue;
     }
 
@@ -1118,27 +1439,27 @@ function drawAxisLabels(
       context,
       formatWorldCoordinate(worldX, settings),
       screenX,
-      job.canvasHeight - 8,
+      viewport.canvasHeight - 8,
       "bottom"
     );
   }
 
   for (let worldZ = firstLabelZ; worldZ <= startWorldZ + visibleWorldHeight + worldLabelStep; worldZ += worldLabelStep) {
-    const screenY = worldZ * pixelsPerBlock + job.offsetY;
-    if (screenY < -22 || screenY > job.canvasHeight + 22) {
+    const screenY = worldZ * pixelsPerBlock + viewport.offsetY;
+    if (screenY < -22 || screenY > viewport.canvasHeight + 22) {
       continue;
     }
 
     drawAxisChip(
       context,
       formatWorldCoordinate(worldZ, settings),
-      job.canvasWidth - 8,
+      viewport.canvasWidth - 8,
       screenY,
       "right"
     );
   }
 
-  if (!job.drawChunkAxis) {
+  if (!settings.chunkCoordinates) {
     return;
   }
 
@@ -1147,8 +1468,8 @@ function drawAxisLabels(
   const firstChunkZ = Math.ceil(startWorldZ / 16 / chunkLabelStep) * chunkLabelStep;
 
   for (let chunkX = firstChunkX; chunkX <= Math.ceil((startWorldX + visibleWorldWidth) / 16) + chunkLabelStep; chunkX += chunkLabelStep) {
-    const screenX = chunkX * 16 * pixelsPerBlock + job.offsetX;
-    if (screenX < -28 || screenX > job.canvasWidth + 28) {
+    const screenX = chunkX * 16 * pixelsPerBlock + viewport.offsetX;
+    if (screenX < -28 || screenX > viewport.canvasWidth + 28) {
       continue;
     }
 
@@ -1156,8 +1477,8 @@ function drawAxisLabels(
   }
 
   for (let chunkZ = firstChunkZ; chunkZ <= Math.ceil((startWorldZ + visibleWorldHeight) / 16) + chunkLabelStep; chunkZ += chunkLabelStep) {
-    const screenY = chunkZ * 16 * pixelsPerBlock + job.offsetY;
-    if (screenY < -18 || screenY > job.canvasHeight + 18) {
+    const screenY = chunkZ * 16 * pixelsPerBlock + viewport.offsetY;
+    if (screenY < -18 || screenY > viewport.canvasHeight + 18) {
       continue;
     }
 
@@ -1180,23 +1501,10 @@ function detectLowEndDevice(): boolean {
   return hardwareThreads <= 4 || memory <= 4 || prefersReducedMotion;
 }
 
-function getSampleScale(mode: RenderMode, zoom: number, lowEndDevice: boolean): number {
+function getSampleScale(zoom: number, lowEndDevice: boolean): number {
   const baseScale = Math.max(1, Math.round(4 / zoom));
   const lowEndMultiplier = lowEndDevice && zoom < 0.85 ? 2 : 1;
-  const interactionMultiplier = mode === "interaction" ? 2 : 1;
-  return baseScale * lowEndMultiplier * interactionMultiplier;
-}
-
-function getFrameBudget(mode: RenderMode, lowEndDevice: boolean): number {
-  if (mode === "interaction") {
-    return lowEndDevice ? 4 : 6;
-  }
-
-  if (mode === "generation") {
-    return lowEndDevice ? 5 : 8;
-  }
-
-  return lowEndDevice ? 6 : 10;
+  return baseScale * lowEndMultiplier;
 }
 
 function clampZoom(zoom: number): number {
