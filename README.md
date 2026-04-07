@@ -112,7 +112,11 @@ console.log(biome, terrain);
 
 ## About Accuracy
 
-ChunkLoader is built for fast exploration and visual scouting. It follows a deterministic seed-based model, but it does not aim to be a full one-to-one reimplementation of every Minecraft worldgen rule or every datapack variant.
+ChunkLoader is built for fast exploration and visual scouting. It uses a deterministic seed-based algorithm, so the same seed, edition, and dimension will always produce the same preview inside the app. In practice, that makes it useful for reading biome layout, spotting broad terrain patterns, checking coordinate context, and quickly scouting likely areas before opening the world in Minecraft.
+
+What it does not try to do is perfectly reproduce every part of vanilla world generation or every datapack rule. The biome map, terrain shading, structure markers, and slime chunk helpers are all generated from the app's own deterministic model, not from live chunk data. That means the large-scale layout and exploration flow should feel consistent and useful, but exact terrain shape, structure placement edge cases, and version-specific generation quirks may differ from the real game.
+
+The practical expectation for normal use is: treat ChunkLoader as a fast planning and scouting tool, not as a final source of truth for every block. It is reliable for previewing the world at a high level, comparing regions, and sharing a map view with someone else, but you should still verify anything critical in-game if you need exact one-to-one accuracy.
 
 ## Self-Hosting
 
