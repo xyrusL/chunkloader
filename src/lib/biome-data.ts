@@ -2,8 +2,7 @@
  * Biome categories for the Biomes panel — groups biomes by type.
  */
 
-import { Biome, BIOME_COLORS } from "./biome-colors";
-import type { BiomeColor } from "./biome-colors";
+import { Biome } from "./biome-colors";
 import type { Dimension } from "./minecraft-versions";
 
 export interface BiomeCategory {

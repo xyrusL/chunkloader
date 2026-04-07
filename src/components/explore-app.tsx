@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import TopBar from "@/components/top-bar";
 import SeedInputPanel from "@/components/seed-input-panel";
 import MapInfoBar from "@/components/map-info-bar";
@@ -19,7 +19,6 @@ import { STRUCTURE_TYPES } from "@/lib/biome-data";
 import { createDefaultBiomeOverlayState, createDefaultMarkerSettings } from "@/lib/map-overlays";
 import { getVersionsForEdition } from "@/lib/minecraft-versions";
 import type { Dimension, Edition, MinecraftVersion } from "@/lib/minecraft-versions";
-import type { BiomeOverlayState, MarkerSettingsState } from "@/lib/map-overlays";
 
 const STORAGE_KEYS = {
   activeTab: "chunkloader:active-tab",
@@ -34,30 +33,56 @@ const VALID_DIMENSIONS = new Set<Dimension>(["overworld", "nether", "end"]);
 const VALID_BIOMES = new Set(Object.values(Biome));
 const VALID_STRUCTURES = new Set(STRUCTURE_TYPES.map((structure) => structure.id));
 
+interface ExploreState {
+  seed: string;
+  version: string;
+  edition: Edition;
+  isGenerating: boolean;
+  activeTab: string;
+  dimension: Dimension;
+  mapSettings: MapSettingsState;
+  markerSettings: ReturnType<typeof createDefaultMarkerSettings>;
+  biomeOverlay: ReturnType<typeof createDefaultBiomeOverlayState>;
+  restoredSettings: boolean;
+}
+
+type ExploreStateUpdater<T> = T | ((current: T) => T);
+
+type ExploreAction =
+  | { type: "hydrate"; state: ExploreState }
+  | { type: "generate"; seed: string; version: MinecraftVersion; edition: Edition }
+  | { type: "generationComplete" }
+  | { type: "setActiveTab"; tab: string }
+  | { type: "setDimension"; dimension: Dimension }
+  | { type: "setMapSettings"; updater: ExploreStateUpdater<MapSettingsState> }
+  | { type: "setMarkerSettings"; updater: ExploreStateUpdater<ExploreState["markerSettings"]> }
+  | { type: "setBiomeOverlay"; updater: ExploreStateUpdater<ExploreState["biomeOverlay"]> };
+
 export default function ExploreApp() {
-  const [seed, setSeed] = useState("");
-  const [version, setVersion] = useState("1.21");
-  const [edition, setEdition] = useState<Edition>("java");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [state, dispatch] = useReducer(exploreReducer, undefined, createDefaultExploreState);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("seed");
-  const [dimension, setDimension] = useState<Dimension>("overworld");
-  const [mapSettings, setMapSettings] = useState<MapSettingsState>(DEFAULT_MAP_SETTINGS);
-  const [markerSettings, setMarkerSettings] = useState(createDefaultMarkerSettings);
-  const [biomeOverlay, setBiomeOverlay] = useState(createDefaultBiomeOverlayState);
-  const [restoredSettings, setRestoredSettings] = useState(false);
   const mapExpandedBeforePanelRef = useRef(false);
 
   const [hoveredBiome, setHoveredBiome] = useState("");
   const [hoveredX, setHoveredX] = useState(0);
   const [hoveredZ, setHoveredZ] = useState(0);
 
+  const {
+    seed,
+    version,
+    edition,
+    isGenerating,
+    activeTab,
+    dimension,
+    mapSettings,
+    markerSettings,
+    biomeOverlay,
+    restoredSettings,
+  } = state;
+
   const handleGenerate = (newSeed: string, newVersion: MinecraftVersion, newEdition: Edition) => {
-    setSeed(newSeed);
-    setVersion(newVersion.id);
-    setEdition(newEdition);
-    setIsGenerating(true);
+    dispatch({ type: "generate", seed: newSeed, version: newVersion, edition: newEdition });
   };
 
   const handleBiomeHover = useCallback((biome: string, x: number, z: number) => {
@@ -67,7 +92,7 @@ export default function ExploreApp() {
   }, []);
 
   const handleGenerationComplete = useCallback(() => {
-    setIsGenerating(false);
+    dispatch({ type: "generationComplete" });
   }, []);
 
   const handleToggleMapExpanded = useCallback(() => {
@@ -98,80 +123,30 @@ export default function ExploreApp() {
   }, []);
 
   const handleDimensionChange = useCallback((nextDimension: Dimension) => {
-    setDimension(nextDimension);
-    if (seed) {
-      setIsGenerating(true);
-    }
-  }, [seed]);
+    dispatch({ type: "setDimension", dimension: nextDimension });
+  }, []);
+
+  const handleTabChange = useCallback((tab: string) => {
+    dispatch({ type: "setActiveTab", tab });
+  }, []);
+
+  const handleMapSettingsChange = useCallback((updater: ExploreStateUpdater<MapSettingsState>) => {
+    dispatch({ type: "setMapSettings", updater });
+  }, []);
+
+  const handleMarkerSettingsChange = useCallback((updater: ExploreStateUpdater<ExploreState["markerSettings"]>) => {
+    dispatch({ type: "setMarkerSettings", updater });
+  }, []);
+
+  const handleBiomeOverlayChange = useCallback((updater: ExploreStateUpdater<ExploreState["biomeOverlay"]>) => {
+    dispatch({ type: "setBiomeOverlay", updater });
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlSeed = urlParams.get("seed")?.trim() ?? "";
-    const urlEditionParam = urlParams.get("edition");
-    const urlVersionParam = urlParams.get("version");
-    const urlDimensionParam = urlParams.get("dimension");
-    const urlEdition: Edition = urlEditionParam === "bedrock" ? "bedrock" : "java";
-    const urlVersions = getVersionsForEdition(urlEdition);
-    const urlVersion = urlVersions.find((candidate) => candidate.id === urlVersionParam)?.id ?? urlVersions[0].id;
-    const urlDimension = VALID_DIMENSIONS.has(urlDimensionParam as Dimension)
-      ? (urlDimensionParam as Dimension)
-      : "overworld";
-
-    const storedActiveTab = window.localStorage.getItem(STORAGE_KEYS.activeTab);
-    if (storedActiveTab && VALID_TABS.has(storedActiveTab)) {
-      setActiveTab(storedActiveTab);
-    }
-
-    const storedDimension = window.localStorage.getItem(STORAGE_KEYS.dimension);
-    if (storedDimension && VALID_DIMENSIONS.has(storedDimension as Dimension)) {
-      setDimension(storedDimension as Dimension);
-    }
-
-    const storedMapSettings = parseStoredJson<Partial<MapSettingsState>>(window.localStorage.getItem(STORAGE_KEYS.mapSettings));
-    if (storedMapSettings) {
-      setMapSettings((current) => ({
-        ...current,
-        ...storedMapSettings,
-      }));
-    }
-
-    const storedMarkerSettings = parseStoredJson<Partial<StoredMarkerSettings>>(window.localStorage.getItem(STORAGE_KEYS.markerSettings));
-    if (storedMarkerSettings) {
-      setMarkerSettings((current) => ({
-        spawnPoint: typeof storedMarkerSettings.spawnPoint === "boolean" ? storedMarkerSettings.spawnPoint : current.spawnPoint,
-        slimeChunks: typeof storedMarkerSettings.slimeChunks === "boolean" ? storedMarkerSettings.slimeChunks : current.slimeChunks,
-        structuresEnabled: typeof storedMarkerSettings.structuresEnabled === "boolean" ? storedMarkerSettings.structuresEnabled : current.structuresEnabled,
-        selectedStructures: storedMarkerSettings.selectedStructures
-          ? new Set(storedMarkerSettings.selectedStructures.filter((structureId) => VALID_STRUCTURES.has(structureId)))
-          : current.selectedStructures,
-      }));
-    }
-
-    const storedBiomeOverlay = parseStoredJson<Partial<StoredBiomeOverlay>>(window.localStorage.getItem(STORAGE_KEYS.biomeOverlay));
-    if (storedBiomeOverlay) {
-      setBiomeOverlay((current) => ({
-        highlightBiomes: typeof storedBiomeOverlay.highlightBiomes === "boolean"
-          ? storedBiomeOverlay.highlightBiomes
-          : current.highlightBiomes,
-        selectedBiomes: storedBiomeOverlay.selectedBiomes
-          ? new Set(storedBiomeOverlay.selectedBiomes.filter((biome) => VALID_BIOMES.has(biome)))
-          : current.selectedBiomes,
-      }));
-    }
-
-    if (urlSeed) {
-      setSeed(urlSeed);
-      setEdition(urlEdition);
-      setVersion(urlVersion);
-      setDimension(urlDimension);
-      setIsGenerating(true);
-    }
-
-    setRestoredSettings(true);
+    dispatch({ type: "hydrate", state: loadExploreStateFromBrowser() });
   }, []);
 
   useEffect(() => {
@@ -219,9 +194,9 @@ export default function ExploreApp() {
     window.history.replaceState({}, "", url);
   }, [dimension, edition, restoredSettings, seed, version]);
 
-  useEffect(() => {
-    const escapeMode = !isMapExpanded ? "off" : isSidePanelOpen ? "drawer" : "map";
+  const escapeMode = !isMapExpanded ? "off" : isSidePanelOpen ? "drawer" : "map";
 
+  useEffect(() => {
     if (escapeMode === "off" || typeof window === "undefined") {
       return;
     }
@@ -242,7 +217,7 @@ export default function ExploreApp() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMapExpanded ? (isSidePanelOpen ? "drawer" : "map") : "off"]);
+  }, [escapeMode]);
 
   const renderPanel = () => {
     switch (activeTab) {
@@ -257,13 +232,13 @@ export default function ExploreApp() {
           />
         );
       case "settings":
-        return <MapSettingsPanel settings={mapSettings} onSettingsChange={setMapSettings} />;
+        return <MapSettingsPanel settings={mapSettings} onSettingsChange={handleMapSettingsChange} />;
       case "finder":
         return <SeedFinderPanel />;
       case "markers":
-        return <MarkersPanel settings={markerSettings} onSettingsChange={setMarkerSettings} />;
+        return <MarkersPanel settings={markerSettings} onSettingsChange={handleMarkerSettingsChange} />;
       case "biomes":
-        return <BiomesPanel dimension={dimension} settings={biomeOverlay} onSettingsChange={setBiomeOverlay} />;
+        return <BiomesPanel dimension={dimension} settings={biomeOverlay} onSettingsChange={handleBiomeOverlayChange} />;
       default:
         return null;
     }
@@ -284,13 +259,13 @@ export default function ExploreApp() {
           />
         );
       case "settings":
-        return <MapSettingsPanel settings={mapSettings} onSettingsChange={setMapSettings} compact hideTitle />;
+        return <MapSettingsPanel settings={mapSettings} onSettingsChange={handleMapSettingsChange} compact hideTitle />;
       case "finder":
         return <SeedFinderPanel compact hideTitle />;
       case "markers":
-        return <MarkersPanel settings={markerSettings} onSettingsChange={setMarkerSettings} compact hideTitle />;
+        return <MarkersPanel settings={markerSettings} onSettingsChange={handleMarkerSettingsChange} compact hideTitle />;
       case "biomes":
-        return <BiomesPanel dimension={dimension} settings={biomeOverlay} onSettingsChange={setBiomeOverlay} compact hideTitle />;
+        return <BiomesPanel dimension={dimension} settings={biomeOverlay} onSettingsChange={handleBiomeOverlayChange} compact hideTitle />;
       default:
         return null;
     }
@@ -309,7 +284,7 @@ export default function ExploreApp() {
         onToggleMapExpanded={handleToggleMapExpanded}
       />
       {isSidePanelOpen && (
-        <SidePanelDrawer activeTab={activeTab} onTabChange={setActiveTab} onClose={handleCloseSidePanel}>
+        <SidePanelDrawer activeTab={activeTab} onTabChange={handleTabChange} onClose={handleCloseSidePanel}>
           {renderSidePanel()}
         </SidePanelDrawer>
       )}
@@ -368,7 +343,7 @@ export default function ExploreApp() {
         <section className="bg-[var(--theme-bg-tabs)]">
           <div className="mx-auto w-full max-w-[112rem] px-2 pb-3 pt-3 sm:px-3 lg:px-5 lg:pb-5 lg:pt-4">
             <div className="overflow-hidden rounded-[28px] border border-white/8 bg-[var(--theme-bg-panel)] shadow-[0_18px_48px_rgba(0,0,0,0.34)]">
-              <BottomTabs activeTab={activeTab} onTabChange={setActiveTab} />
+              <BottomTabs activeTab={activeTab} onTabChange={handleTabChange} />
               <div className="bg-[var(--theme-bg-panel)]">
                 <div className="mx-auto w-full max-w-5xl">
                   {renderPanel()}
@@ -394,6 +369,139 @@ interface StoredBiomeOverlay {
   selectedBiomes: Biome[];
 }
 
+function createDefaultExploreState(): ExploreState {
+  return {
+    seed: "",
+    version: "1.21",
+    edition: "java",
+    isGenerating: false,
+    activeTab: "seed",
+    dimension: "overworld",
+    mapSettings: DEFAULT_MAP_SETTINGS,
+    markerSettings: createDefaultMarkerSettings(),
+    biomeOverlay: createDefaultBiomeOverlayState(),
+    restoredSettings: false,
+  };
+}
+
+function exploreReducer(state: ExploreState, action: ExploreAction): ExploreState {
+  switch (action.type) {
+    case "hydrate":
+      return action.state;
+    case "generate":
+      return {
+        ...state,
+        seed: action.seed,
+        version: action.version.id,
+        edition: action.edition,
+        isGenerating: true,
+      };
+    case "generationComplete":
+      return {
+        ...state,
+        isGenerating: false,
+      };
+    case "setActiveTab":
+      return {
+        ...state,
+        activeTab: action.tab,
+      };
+    case "setDimension":
+      return {
+        ...state,
+        dimension: action.dimension,
+        isGenerating: state.seed ? true : state.isGenerating,
+      };
+    case "setMapSettings":
+      return {
+        ...state,
+        mapSettings: resolveUpdater(action.updater, state.mapSettings),
+      };
+    case "setMarkerSettings":
+      return {
+        ...state,
+        markerSettings: resolveUpdater(action.updater, state.markerSettings),
+      };
+    case "setBiomeOverlay":
+      return {
+        ...state,
+        biomeOverlay: resolveUpdater(action.updater, state.biomeOverlay),
+      };
+    default:
+      return state;
+  }
+}
+
+function loadExploreStateFromBrowser(): ExploreState {
+  const nextState = createDefaultExploreState();
+  if (typeof window === "undefined") {
+    return nextState;
+  }
+
+  const storedActiveTab = window.localStorage.getItem(STORAGE_KEYS.activeTab);
+  if (storedActiveTab && VALID_TABS.has(storedActiveTab)) {
+    nextState.activeTab = storedActiveTab;
+  }
+
+  const storedDimension = window.localStorage.getItem(STORAGE_KEYS.dimension);
+  if (storedDimension && VALID_DIMENSIONS.has(storedDimension as Dimension)) {
+    nextState.dimension = storedDimension as Dimension;
+  }
+
+  const storedMapSettings = parseStoredJson<Partial<MapSettingsState>>(window.localStorage.getItem(STORAGE_KEYS.mapSettings));
+  if (storedMapSettings) {
+    nextState.mapSettings = {
+      ...nextState.mapSettings,
+      ...storedMapSettings,
+    };
+  }
+
+  const storedMarkerSettings = parseStoredJson<Partial<StoredMarkerSettings>>(window.localStorage.getItem(STORAGE_KEYS.markerSettings));
+  if (storedMarkerSettings) {
+    nextState.markerSettings = {
+      spawnPoint: typeof storedMarkerSettings.spawnPoint === "boolean" ? storedMarkerSettings.spawnPoint : nextState.markerSettings.spawnPoint,
+      slimeChunks: typeof storedMarkerSettings.slimeChunks === "boolean" ? storedMarkerSettings.slimeChunks : nextState.markerSettings.slimeChunks,
+      structuresEnabled: typeof storedMarkerSettings.structuresEnabled === "boolean" ? storedMarkerSettings.structuresEnabled : nextState.markerSettings.structuresEnabled,
+      selectedStructures: storedMarkerSettings.selectedStructures
+        ? new Set(storedMarkerSettings.selectedStructures.filter((structureId) => VALID_STRUCTURES.has(structureId)))
+        : nextState.markerSettings.selectedStructures,
+    };
+  }
+
+  const storedBiomeOverlay = parseStoredJson<Partial<StoredBiomeOverlay>>(window.localStorage.getItem(STORAGE_KEYS.biomeOverlay));
+  if (storedBiomeOverlay) {
+    nextState.biomeOverlay = {
+      highlightBiomes: typeof storedBiomeOverlay.highlightBiomes === "boolean"
+        ? storedBiomeOverlay.highlightBiomes
+        : nextState.biomeOverlay.highlightBiomes,
+      selectedBiomes: storedBiomeOverlay.selectedBiomes
+        ? new Set(storedBiomeOverlay.selectedBiomes.filter((biome) => VALID_BIOMES.has(biome)))
+        : nextState.biomeOverlay.selectedBiomes,
+    };
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const urlSeed = urlParams.get("seed")?.trim() ?? "";
+  if (urlSeed) {
+    const urlEditionParam = urlParams.get("edition");
+    const urlVersionParam = urlParams.get("version");
+    const urlDimensionParam = urlParams.get("dimension");
+    const urlEdition: Edition = urlEditionParam === "bedrock" ? "bedrock" : "java";
+    const urlVersions = getVersionsForEdition(urlEdition);
+
+    nextState.seed = urlSeed;
+    nextState.edition = urlEdition;
+    nextState.version = urlVersions.find((candidate) => candidate.id === urlVersionParam)?.id ?? urlVersions[0].id;
+    nextState.dimension = VALID_DIMENSIONS.has(urlDimensionParam as Dimension)
+      ? (urlDimensionParam as Dimension)
+      : "overworld";
+    nextState.isGenerating = true;
+  }
+
+  nextState.restoredSettings = true;
+  return nextState;
+}
+
 function parseStoredJson<T>(value: string | null): T | null {
   if (!value) {
     return null;
@@ -404,4 +512,10 @@ function parseStoredJson<T>(value: string | null): T | null {
   } catch {
     return null;
   }
+}
+
+function resolveUpdater<T>(updater: ExploreStateUpdater<T>, current: T): T {
+  return typeof updater === "function"
+    ? (updater as (value: T) => T)(current)
+    : updater;
 }
