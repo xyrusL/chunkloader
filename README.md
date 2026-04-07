@@ -66,45 +66,29 @@ If you only want the short version: ChunkLoader does not stream real Minecraft c
 
 ### Short Explanation
 
-- The seed string is first hashed into a deterministic 32-bit integer in [`src/lib/noise.ts`](./src/lib/noise.ts).
-- That base value is reused with offsets (`seed + 1000`, `seed + 2000`, and so on) to create separate noise fields for temperature, humidity, continentalness, erosion, weirdness, ridges, terrain, and detail in [`src/lib/biome-generator.ts`](./src/lib/biome-generator.ts).
-- Each field is sampled with multi-octave Perlin-style fractal noise:
+The engine starts by hashing the input seed into a deterministic 32-bit number in [`src/lib/noise.ts`](./src/lib/noise.ts). That value becomes the base for several separate noise generators in [`src/lib/biome-generator.ts`](./src/lib/biome-generator.ts), each one responsible for a different climate signal such as temperature, humidity, continentalness, erosion, weirdness, ridges, terrain shape, and fine detail. Because each field uses its own seeded offset, the same seed always produces the same map, but each layer still behaves differently.
 
-  `value(x, z) = Σ noise(x * frequency_i, z * frequency_i) * amplitude_i / Σ amplitude_i`
+For any world coordinate `(x, z)`, the generator samples those fields with multi-octave fractal noise. In simple terms, it combines several larger and smaller waves into one value:
 
-- The resulting climate vector at each world position is roughly:
+`value(x, z) = Σ noise(x * frequency_i, z * frequency_i) * amplitude_i / Σ amplitude_i`
 
-  `climate(x, z) = { temp, humid, cont, erosion, weird }`
+That produces a climate tuple that roughly looks like `climate(x, z) = { temp, humid, cont, erosion, weird }`. The biome classifier then turns that tuple into a biome by applying threshold rules. Very negative continentalness pushes the result toward ocean biomes, high continentalness with low erosion pushes it toward peaks and mountains, very low temperature pushes it toward snowy biomes, and hot dry ranges push it toward desert, savanna, or badlands. It is still rule-based, but the input to those rules comes from smooth noise fields, which is why transitions look more natural than a random biome picker.
 
-- The biome classifier then uses threshold rules on those values. A simplified way to read it is:
+Height is estimated separately from the biome label. Instead of reading Minecraft chunk files, the engine blends continentalness, broad terrain noise, ridge noise, detail noise, and erosion masks into a normalized `0..1` terrain value. From that sampled height field, it derives slope and light using neighboring values, which lets the renderer draw terrain shading and contour-like structure without trying to fully simulate vanilla chunk generation.
 
-  `continentalness < -0.45 -> ocean family`
-
-  `continentalness > 0.55 && erosion < -0.2 -> peaks / mountains`
-
-  `temperature < -0.5 -> snowy biomes`
-
-  `high temperature + low humidity -> desert / savanna / badlands`
-
-- Height is not loaded from Minecraft chunks. It is estimated from a blend of continentalness, macro terrain noise, ridge noise, detail noise, and erosion masks, then normalized into a `0..1` range for visual shading.
-- Slope and light are derived from neighboring height samples, so the app can draw contour-style shading and directional lighting without simulating full chunk generation.
-- Generated results are cached in `32x32` terrain tiles in the biome generator, and the visible map renderer groups those further into `64x64` render tiles, so only the current view and a small overscan area need to be drawn while panning.
-- Structure markers and slime chunk helpers are deterministic overlays from [`src/lib/map-overlays.ts`](./src/lib/map-overlays.ts), not scanned from saved world data.
+To keep panning fast, generated biome and terrain data is cached in `32x32` terrain tiles inside the biome generator, and the renderer groups visible output into `64x64` render tiles. That means the app only has to compute and paint the current view plus a small overscan area instead of rebuilding the whole map every frame. Structure markers and slime chunks are also deterministic overlays from [`src/lib/map-overlays.ts`](./src/lib/map-overlays.ts), so they are calculated from the seed and viewport rather than loaded from saved world data.
 
 ### How The Math Fits Together
 
-At a high level, the Overworld pipeline looks like this:
+At a high level, the Overworld pipeline is:
 
-1. Convert `(x, z)` world coordinates into several low-frequency and high-frequency noise samples.
-2. Use those samples as climate axes:
-   `temperature`, `humidity`, `continentalness`, `erosion`, and `weirdness`.
-3. Feed that climate tuple into rule-based biome selection.
-4. Build an approximate terrain height from macro terrain, ridges, detail, and erosion.
-5. Compute slope from neighboring height differences:
-   `slope ~= sqrt(dx^2 + dz^2)`
-6. Convert biome + height + slope + light into the final map color for that pixel.
+`(x, z) -> climate noise -> biome rules -> height estimate -> slope/light -> final map color`
 
-This is why the map feels close to Minecraft worldgen patterns without needing to stream or decode actual chunk files. The engine is deterministic, seed-based, and fast enough to keep re-rendering only the visible area as the user pans or zooms.
+The slope step is based on neighboring height differences, roughly:
+
+`slope ~= sqrt(dx^2 + dz^2)`
+
+That is the main reason the map feels structured and terrain-aware even though it is not streaming real game chunks. The result is a deterministic preview that stays close to Minecraft-style worldgen logic while remaining fast enough to update only the visible part of the map during pan and zoom.
 
 ### Example
 
