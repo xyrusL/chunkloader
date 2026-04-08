@@ -379,7 +379,11 @@ export type StructureIconName =
   | "stronghold"
   | "ocean_ruin"
   | "trail_ruin"
-  | "trial_chambers";
+  | "trial_chambers"
+  | "nether_fortress"
+  | "bastion_remnant"
+  | "nether_fossil"
+  | "end_city";
 
 export function StructureIcon({ name, className = "h-4 w-4" }: { name: StructureIconName; className?: string }) {
   const icons: Record<StructureIconName, ReactElement> = {
@@ -401,6 +405,10 @@ export function StructureIcon({ name, className = "h-4 w-4" }: { name: Structure
     ocean_ruin: <OceanRuinPixelIcon className={className} />,
     trail_ruin: <TrailRuinPixelIcon className={className} />,
     trial_chambers: <TrialChambersPixelIcon className={className} />,
+    nether_fortress: <NetherFortressPixelIcon className={className} />,
+    bastion_remnant: <BastionRemnantPixelIcon className={className} />,
+    nether_fossil: <NetherFossilPixelIcon className={className} />,
+    end_city: <EndCityPixelIcon className={className} />,
   };
 
   return icons[name];
@@ -638,6 +646,61 @@ function TrialChambersPixelIcon(props: IconProps) {
       <rect x="6" y="6" width="4" height="4" fill="#345E7B" />
       <rect x="7" y="7" width="2" height="2" fill="#D28F3F" />
       <rect x="4" y="11" width="8" height="1" fill="#A6B6BF" />
+    </PixelIconBase>
+  );
+}
+
+function NetherFortressPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="4" width="12" height="8" fill="#3A1E1E" />
+      <rect x="1" y="11" width="14" height="2" fill="#221011" />
+      <rect x="3" y="2" width="2" height="10" fill="#5C2D2D" />
+      <rect x="11" y="2" width="2" height="10" fill="#5C2D2D" />
+      <rect x="6" y="5" width="4" height="3" fill="#7A3A3A" />
+      <rect x="6" y="8" width="1" height="3" fill="#D6A15A" />
+      <rect x="9" y="8" width="1" height="3" fill="#D6A15A" />
+    </PixelIconBase>
+  );
+}
+
+function BastionRemnantPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="3" width="12" height="10" fill="#302122" />
+      <rect x="3" y="4" width="10" height="8" fill="#4A3234" />
+      <rect x="5" y="2" width="6" height="2" fill="#5E4346" />
+      <rect x="4" y="6" width="2" height="5" fill="#C89B3C" />
+      <rect x="10" y="6" width="2" height="5" fill="#C89B3C" />
+      <rect x="7" y="5" width="2" height="6" fill="#1D1314" />
+      <rect x="6" y="11" width="4" height="1" fill="#7D5C2F" />
+    </PixelIconBase>
+  );
+}
+
+function NetherFossilPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="2" y="10" width="12" height="2" fill="#E5D7BD" />
+      <rect x="3" y="8" width="2" height="2" fill="#E5D7BD" />
+      <rect x="11" y="8" width="2" height="2" fill="#E5D7BD" />
+      <rect x="5" y="6" width="1" height="5" fill="#D5C5A7" />
+      <rect x="10" y="6" width="1" height="5" fill="#D5C5A7" />
+      <rect x="7" y="5" width="2" height="6" fill="#F2E9D8" />
+      <rect x="6" y="4" width="4" height="1" fill="#C7B79A" />
+    </PixelIconBase>
+  );
+}
+
+function EndCityPixelIcon(props: IconProps) {
+  return (
+    <PixelIconBase {...props}>
+      <rect x="4" y="2" width="8" height="12" fill="#D6C8DB" />
+      <rect x="5" y="3" width="6" height="10" fill="#B08BC0" />
+      <rect x="6" y="1" width="4" height="2" fill="#EFE6C4" />
+      <rect x="6" y="5" width="4" height="2" fill="#F2E8FF" />
+      <rect x="7" y="7" width="2" height="6" fill="#6F4A84" />
+      <rect x="3" y="13" width="10" height="1" fill="#8B72A0" />
     </PixelIconBase>
   );
 }

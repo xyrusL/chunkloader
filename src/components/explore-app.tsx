@@ -236,7 +236,7 @@ export default function ExploreApp() {
       case "finder":
         return <SeedFinderPanel />;
       case "markers":
-        return <MarkersPanel settings={markerSettings} onSettingsChange={handleMarkerSettingsChange} />;
+        return <MarkersPanel dimension={dimension} settings={markerSettings} onSettingsChange={handleMarkerSettingsChange} />;
       case "biomes":
         return <BiomesPanel dimension={dimension} settings={biomeOverlay} onSettingsChange={handleBiomeOverlayChange} />;
       default:
@@ -263,7 +263,15 @@ export default function ExploreApp() {
       case "finder":
         return <SeedFinderPanel compact hideTitle />;
       case "markers":
-        return <MarkersPanel settings={markerSettings} onSettingsChange={handleMarkerSettingsChange} compact hideTitle />;
+        return (
+          <MarkersPanel
+            dimension={dimension}
+            settings={markerSettings}
+            onSettingsChange={handleMarkerSettingsChange}
+            compact
+            hideTitle
+          />
+        );
       case "biomes":
         return <BiomesPanel dimension={dimension} settings={biomeOverlay} onSettingsChange={handleBiomeOverlayChange} compact hideTitle />;
       default:

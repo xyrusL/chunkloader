@@ -1,10 +1,12 @@
 "use client";
 
-import { STRUCTURE_TYPES } from "@/lib/biome-data";
+import { getStructureTypesForDimension } from "@/lib/biome-data";
 import type { MarkerSettingsState } from "@/lib/map-overlays";
 import { CheckSquareIcon, SquareIcon, StructureIcon, WarningIcon } from "@/components/ui/icons";
+import type { Dimension } from "@/lib/minecraft-versions";
 
 interface MarkersPanelProps {
+  dimension: Dimension;
   settings: MarkerSettingsState;
   onSettingsChange: (settings: MarkerSettingsState) => void;
   compact?: boolean;
@@ -12,12 +14,15 @@ interface MarkersPanelProps {
 }
 
 export default function MarkersPanel({
+  dimension,
   settings,
   onSettingsChange,
   compact = false,
   hideTitle = false,
 }: MarkersPanelProps) {
   const { spawnPoint, slimeChunks, structuresEnabled, selectedStructures } = settings;
+  const visibleStructures = getStructureTypesForDimension(dimension);
+  const selectedVisibleCount = visibleStructures.filter((structure) => selectedStructures.has(structure.id)).length;
 
   const update = (patch: Partial<MarkerSettingsState>) => {
     onSettingsChange({ ...settings, ...patch });
@@ -34,11 +39,19 @@ export default function MarkersPanel({
   };
 
   const selectAll = () => {
-    update({ selectedStructures: new Set(STRUCTURE_TYPES.map((s) => s.id)) });
+    const next = new Set(selectedStructures);
+    for (const structure of visibleStructures) {
+      next.add(structure.id);
+    }
+    update({ selectedStructures: next });
   };
 
   const clearAll = () => {
-    update({ selectedStructures: new Set() });
+    const next = new Set(selectedStructures);
+    for (const structure of visibleStructures) {
+      next.delete(structure.id);
+    }
+    update({ selectedStructures: next });
   };
 
   return (
@@ -53,7 +66,7 @@ export default function MarkersPanel({
       <div className="space-y-3">
         <div className="flex items-center gap-3">
           <ToggleSwitch
-            label={`Structures (selected: ${selectedStructures.size})`}
+            label={`Structures (selected: ${selectedVisibleCount})`}
             checked={structuresEnabled}
             onChange={() => update({ structuresEnabled: !structuresEnabled })}
           />
@@ -82,7 +95,7 @@ export default function MarkersPanel({
             </div>
 
             <div className={`grid gap-2 ${compact ? "grid-cols-1" : "md:grid-cols-2 xl:grid-cols-3"}`}>
-              {STRUCTURE_TYPES.map((structure) => {
+              {visibleStructures.map((structure) => {
                 const isSelected = selectedStructures.has(structure.id);
                 return (
                   <button

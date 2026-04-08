@@ -152,25 +152,34 @@ export interface StructureType {
   id: string;
   name: string;
   icon: import("@/components/ui/icons").StructureIconName;
+  dimensions: Dimension[];
 }
 
 export const STRUCTURE_TYPES: StructureType[] = [
-  { id: "village", name: "Village", icon: "village" },
-  { id: "ocean_monument", name: "Ocean Monument", icon: "ocean_monument" },
-  { id: "shipwreck", name: "Shipwreck", icon: "shipwreck" },
-  { id: "mineshaft", name: "Mineshaft", icon: "mineshaft" },
-  { id: "ancient_city", name: "Ancient City", icon: "ancient_city" },
-  { id: "amethyst_geode", name: "Amethyst Geode", icon: "amethyst_geode" },
-  { id: "woodland_mansion", name: "Woodland Mansion", icon: "woodland_mansion" },
-  { id: "desert_pyramid", name: "Desert Pyramid", icon: "desert_pyramid" },
-  { id: "jungle_temple", name: "Jungle Temple", icon: "jungle_temple" },
-  { id: "igloo", name: "Igloo", icon: "igloo" },
-  { id: "pillager_outpost", name: "Pillager Outpost", icon: "pillager_outpost" },
-  { id: "ruined_portal", name: "Ruined Portal", icon: "ruined_portal" },
-  { id: "buried_treasure", name: "Buried Treasure", icon: "buried_treasure" },
-  { id: "swamp_hut", name: "Swamp Hut", icon: "swamp_hut" },
-  { id: "stronghold", name: "Stronghold", icon: "stronghold" },
-  { id: "ocean_ruin", name: "Ocean Ruin", icon: "ocean_ruin" },
-  { id: "trail_ruin", name: "Trail Ruin", icon: "trail_ruin" },
-  { id: "trial_chambers", name: "Trial Chambers", icon: "trial_chambers" },
+  { id: "village", name: "Village", icon: "village", dimensions: ["overworld"] },
+  { id: "ocean_monument", name: "Ocean Monument", icon: "ocean_monument", dimensions: ["overworld"] },
+  { id: "shipwreck", name: "Shipwreck", icon: "shipwreck", dimensions: ["overworld"] },
+  { id: "mineshaft", name: "Mineshaft", icon: "mineshaft", dimensions: ["overworld"] },
+  { id: "ancient_city", name: "Ancient City", icon: "ancient_city", dimensions: ["overworld"] },
+  { id: "amethyst_geode", name: "Amethyst Geode", icon: "amethyst_geode", dimensions: ["overworld"] },
+  { id: "woodland_mansion", name: "Woodland Mansion", icon: "woodland_mansion", dimensions: ["overworld"] },
+  { id: "desert_pyramid", name: "Desert Pyramid", icon: "desert_pyramid", dimensions: ["overworld"] },
+  { id: "jungle_temple", name: "Jungle Temple", icon: "jungle_temple", dimensions: ["overworld"] },
+  { id: "igloo", name: "Igloo", icon: "igloo", dimensions: ["overworld"] },
+  { id: "pillager_outpost", name: "Pillager Outpost", icon: "pillager_outpost", dimensions: ["overworld"] },
+  { id: "ruined_portal", name: "Ruined Portal", icon: "ruined_portal", dimensions: ["overworld", "nether"] },
+  { id: "buried_treasure", name: "Buried Treasure", icon: "buried_treasure", dimensions: ["overworld"] },
+  { id: "swamp_hut", name: "Swamp Hut", icon: "swamp_hut", dimensions: ["overworld"] },
+  { id: "stronghold", name: "Stronghold", icon: "stronghold", dimensions: ["overworld"] },
+  { id: "ocean_ruin", name: "Ocean Ruin", icon: "ocean_ruin", dimensions: ["overworld"] },
+  { id: "trail_ruin", name: "Trail Ruin", icon: "trail_ruin", dimensions: ["overworld"] },
+  { id: "trial_chambers", name: "Trial Chambers", icon: "trial_chambers", dimensions: ["overworld"] },
+  { id: "nether_fortress", name: "Nether Fortress", icon: "nether_fortress", dimensions: ["nether"] },
+  { id: "bastion_remnant", name: "Bastion Remnant", icon: "bastion_remnant", dimensions: ["nether"] },
+  { id: "nether_fossil", name: "Nether Fossil", icon: "nether_fossil", dimensions: ["nether"] },
+  { id: "end_city", name: "End City", icon: "end_city", dimensions: ["end"] },
 ];
+
+export function getStructureTypesForDimension(dimension: Dimension): StructureType[] {
+  return STRUCTURE_TYPES.filter((structure) => structure.dimensions.includes(dimension));
+}

@@ -1,5 +1,6 @@
 import type { Biome } from "./biome-colors";
-import { STRUCTURE_TYPES, type StructureType } from "./biome-data";
+import { getStructureTypesForDimension, type StructureType } from "./biome-data";
+import type { Dimension } from "./minecraft-versions";
 import { hashSeed, mulberry32 } from "./noise";
 
 export interface MarkerSettingsState {
@@ -73,10 +74,12 @@ export function isSlimeChunk(seed: string, chunkX: number, chunkZ: number): bool
 
 export function getVisibleStructureMarkers(
   seed: string,
+  dimension: Dimension,
   selectedStructureIds: Set<string>,
   bounds: WorldBounds
 ): VisibleStructureMarker[] {
   const visibleMarkers: VisibleStructureMarker[] = [];
+  const structureTypes = getStructureTypesForDimension(dimension);
   const expandedBounds = {
     minX: bounds.minX - 320,
     maxX: bounds.maxX + 320,
@@ -84,7 +87,7 @@ export function getVisibleStructureMarkers(
     maxZ: bounds.maxZ + 320,
   };
 
-  for (const structure of STRUCTURE_TYPES) {
+  for (const structure of structureTypes) {
     if (!selectedStructureIds.has(structure.id)) {
       continue;
     }

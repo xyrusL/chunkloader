@@ -530,21 +530,21 @@ function StoryStepCard({
         </span>
         <p className="text-[0.72rem] uppercase tracking-[0.24em] text-[var(--theme-text-faint)]">{eyebrow}</p>
       </div>
-      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <div className="mt-5 space-y-5">
         <div>
           <h3 className="text-2xl font-semibold tracking-tight text-white sm:text-3xl">{title}</h3>
           <p className="mt-4 text-sm leading-8 text-[var(--theme-text-secondary)] sm:text-base">{body}</p>
         </div>
-        <div className="self-start rounded-[1.3rem] border border-white/8 bg-white/[0.03] p-3.5">
-          <p className="text-[0.68rem] uppercase tracking-[0.2em] text-[var(--theme-text-faint)]">Quick view</p>
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-[var(--theme-text-secondary)]">
+        <div className="rounded-[1.45rem] border border-white/8 bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] px-4 py-4 sm:px-5">
+          <p className="text-[0.68rem] uppercase tracking-[0.24em] text-[var(--theme-text-faint)]">Quick view</p>
+          <div className="mt-3 grid justify-items-start gap-2.5 text-xs text-[var(--theme-text-secondary)] sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:justify-items-stretch sm:gap-x-2 sm:gap-y-2">
             <QuickViewChip label={quickView[0]} />
             <QuickViewArrow />
             <QuickViewChip label={quickView[1]} />
             <QuickViewArrow />
             <QuickViewChip label={quickView[2]} />
           </div>
-          <p className="mt-3 text-xs leading-6 text-[var(--theme-text-secondary)]">{note}</p>
+          <p className="mt-4 max-w-3xl text-xs leading-6 text-[var(--theme-text-secondary)]">{note}</p>
         </div>
       </div>
     </article>
@@ -553,7 +553,7 @@ function StoryStepCard({
 
 function QuickViewChip({ label }: { label: string }) {
   return (
-    <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1.5 text-xs leading-5 text-white/90">
+    <div className="w-full rounded-[999px] border border-white/8 bg-black/20 px-4 py-2 text-xs leading-6 text-white/90 sm:min-h-[3.25rem] sm:w-auto sm:content-center">
       {label}
     </div>
   );
@@ -561,8 +561,12 @@ function QuickViewChip({ label }: { label: string }) {
 
 function QuickViewArrow() {
   return (
-    <div className="flex justify-center text-white/30">
-      <span className="text-sm">↓</span>
+    <div
+      aria-hidden="true"
+      className="flex w-full items-center justify-center self-center text-white/35 sm:w-auto"
+    >
+      <span className="text-base leading-none sm:hidden">↓</span>
+      <span className="hidden text-base leading-none sm:inline">→</span>
     </div>
   );
 }

@@ -125,6 +125,14 @@ const RENDER_TILE_OVERSCAN = 1;
 const MAX_RENDER_TILES = 96;
 const WHEEL_ZOOM_SENSITIVITY = 0.0012;
 const MAX_WHEEL_DELTA = 240;
+const INITIAL_VIEWPORT: MapViewportState = {
+  offsetX: 0,
+  offsetY: 0,
+  zoom: 1,
+  sampleScale: 4,
+  canvasWidth: 800,
+  canvasHeight: 600,
+};
 
 function getRenderTileKey(sampleScale: number, tileX: number, tileZ: number, signature: string) {
   return `${signature}|${sampleScale}:${tileX}:${tileZ}`;
@@ -162,6 +170,7 @@ export default function MapCanvas({
   const activeRenderRequestRef = useRef<RenderRequest | null>(null);
   const terrainSnapshotCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const terrainSnapshotViewportRef = useRef<MapViewportState | null>(null);
+  const viewportRef = useRef<MapViewportState>(INITIAL_VIEWPORT);
   const lowEndDeviceRef = useRef(false);
   const persistentTileCacheEnabledRef = useRef(true);
   const generationCompletePendingRef = useRef(false);
@@ -169,19 +178,13 @@ export default function MapCanvas({
   const [hasGenerator, setHasGenerator] = useState(false);
   const [isLowEndDevice, setIsLowEndDevice] = useState(false);
   const [isRenderingMap, setIsRenderingMap] = useState(false);
-  const [viewport, setViewport] = useState<MapViewportState>({
-    offsetX: 0,
-    offsetY: 0,
-    zoom: 1,
-    sampleScale: 4,
-    canvasWidth: 800,
-    canvasHeight: 600,
-  });
+  const [, setViewport] = useState<MapViewportState>(INITIAL_VIEWPORT);
   const [visibleBiomeLabels, setVisibleBiomeLabels] = useState<VisibleBiomeLabel[]>([]);
   const [selectedOverlay, setSelectedOverlay] = useState<SelectedOverlayCommand | null>(null);
   const [copiedCommandKey, setCopiedCommandKey] = useState<string | null>(null);
   const [hoveredOverlayKey, setHoveredOverlayKey] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null);
+  const [isInteractionPreview, setIsInteractionPreview] = useState(false);
 
   useEffect(() => {
     lowEndDeviceRef.current = detectLowEndDevice();
@@ -246,6 +249,7 @@ export default function MapCanvas({
       canvasHeight: h,
     };
 
+    viewportRef.current = nextViewport;
     setViewport(nextViewport);
     return nextViewport;
   }
@@ -327,7 +331,7 @@ export default function MapCanvas({
     context.drawImage(snapshotCanvas, drawX, drawY, drawWidth, drawHeight);
   }
 
-  function saveTerrainSnapshot(viewportState: MapViewportState, context: CanvasRenderingContext2D) {
+  function saveTerrainSnapshot(viewportState: MapViewportState, sourceCanvas: HTMLCanvasElement) {
     const snapshotCanvas = ensureTerrainSnapshotCanvas(viewportState.canvasWidth, viewportState.canvasHeight);
     const snapshotContext = snapshotCanvas.getContext("2d");
     if (!snapshotContext) {
@@ -335,8 +339,32 @@ export default function MapCanvas({
     }
 
     snapshotContext.clearRect(0, 0, snapshotCanvas.width, snapshotCanvas.height);
-    snapshotContext.drawImage(context.canvas, 0, 0);
+    snapshotContext.drawImage(sourceCanvas, 0, 0);
     terrainSnapshotViewportRef.current = viewportState;
+  }
+
+  function drawTerrainTiles(context: CanvasRenderingContext2D, viewportState: MapViewportState) {
+    const tileRange = getVisibleTileRange(viewportState);
+    const tileConfig = getTileConfig();
+    const cellSize = getSampleCellSize(viewportState);
+
+    for (let tileZ = tileRange.minTileZ; tileZ <= tileRange.maxTileZ; tileZ++) {
+      for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
+        const tile = renderTileCacheRef.current.get(getRenderTileKey(viewportState.sampleScale, tileX, tileZ, tileConfig.signature));
+        if (!tile || tile.status !== "ready") {
+          continue;
+        }
+
+        markTileUsed(tile);
+        context.drawImage(
+          tile.canvas,
+          tile.tileX * RENDER_TILE_CELLS * cellSize + viewportState.offsetX,
+          tile.tileZ * RENDER_TILE_CELLS * cellSize + viewportState.offsetY,
+          RENDER_TILE_CELLS * cellSize,
+          RENDER_TILE_CELLS * cellSize
+        );
+      }
+    }
   }
 
   function markTileUsed(tile: RenderTile) {
@@ -445,7 +473,7 @@ export default function MapCanvas({
 
       const activeRequest = activeRenderRequestRef.current;
       if (activeRequest) {
-        drawCanvas(activeRequest.viewport, activeRequest.mode);
+        drawCanvas(activeRequest.viewport);
         finalizeRenderRequest(activeRequest.token);
       }
     } catch {
@@ -590,7 +618,10 @@ export default function MapCanvas({
     return labels;
   }
 
-  function drawCanvas(viewportState: MapViewportState, mode: RenderMode) {
+  function drawCanvas(
+    viewportState: MapViewportState,
+    options?: { saveSnapshot?: boolean; drawGridHelpers?: boolean }
+  ) {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -609,36 +640,19 @@ export default function MapCanvas({
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.imageSmoothingEnabled = false;
     drawTerrainSnapshotFallback(context, viewportState);
+    drawTerrainTiles(context, viewportState);
 
-    const tileRange = getVisibleTileRange(viewportState);
-    const tileConfig = getTileConfig();
-    const cellSize = getSampleCellSize(viewportState);
-
-    for (let tileZ = tileRange.minTileZ; tileZ <= tileRange.maxTileZ; tileZ++) {
-      for (let tileX = tileRange.minTileX; tileX <= tileRange.maxTileX; tileX++) {
-        const tile = renderTileCacheRef.current.get(getRenderTileKey(viewportState.sampleScale, tileX, tileZ, tileConfig.signature));
-        if (!tile || tile.status !== "ready") {
-          continue;
-        }
-
-        markTileUsed(tile);
-        context.drawImage(
-          tile.canvas,
-          tile.tileX * RENDER_TILE_CELLS * cellSize + viewportState.offsetX,
-          tile.tileZ * RENDER_TILE_CELLS * cellSize + viewportState.offsetY,
-          RENDER_TILE_CELLS * cellSize,
-          RENDER_TILE_CELLS * cellSize
-        );
-      }
+    if (options?.saveSnapshot) {
+      saveTerrainSnapshot(viewportState, canvas);
     }
 
-    saveTerrainSnapshot(viewportState, context);
+    const shouldDrawGridHelpers = options?.drawGridHelpers ?? settings.showGrid;
 
-    if (settings.showGrid) {
+    if (shouldDrawGridHelpers) {
       drawGrid(context, viewportState);
     }
 
-    if (settings.showGrid && mode === "settled") {
+    if (shouldDrawGridHelpers) {
       drawAxisLabels(context, viewportState, settings);
     }
   }
@@ -656,9 +670,13 @@ export default function MapCanvas({
       }
     }
 
-    drawCanvas(request.viewport, request.mode);
+    drawCanvas(request.viewport, { saveSnapshot: true, drawGridHelpers: settings.showGrid });
     if (request.mode === "settled") {
       setVisibleBiomeLabels(collectVisibleBiomeLabels(request.viewport, request.sampleScale, getTileConfig()));
+    }
+
+    if (request.mode !== "interaction") {
+      setIsInteractionPreview(false);
     }
 
     if (request.mode !== "interaction") {
@@ -702,7 +720,7 @@ export default function MapCanvas({
 
     const activeRequest = activeRenderRequestRef.current;
     if (activeRequest) {
-      drawCanvas(activeRequest.viewport, activeRequest.mode);
+      drawCanvas(activeRequest.viewport, { drawGridHelpers: settings.showGrid });
       finalizeRenderRequest(activeRequest.token);
     }
 
@@ -759,7 +777,7 @@ export default function MapCanvas({
     };
 
     setIsRenderingMap(mode !== "interaction" && missingTiles > 0);
-    drawCanvas(viewportState, mode);
+    drawCanvas(viewportState, { drawGridHelpers: settings.showGrid });
 
     if (missingTiles === 0) {
       finalizeRenderRequest(activeRenderRequestRef.current.token);
@@ -893,8 +911,9 @@ export default function MapCanvas({
     offsetRef.current.x += dx;
     offsetRef.current.y += dy;
 
+    setIsInteractionPreview(true);
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, "interaction");
+    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
     scheduleRender("interaction");
     queueSettledRender();
   }
@@ -963,8 +982,9 @@ export default function MapCanvas({
     }
 
     zoomRef.current = newZoom;
+    setIsInteractionPreview(true);
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, "interaction");
+    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
     scheduleRender("interaction");
     queueSettledRender();
   }
@@ -987,7 +1007,7 @@ export default function MapCanvas({
     setHoverTooltip(null);
     setHoveredOverlayKey(null);
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, "generation");
+    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
     scheduleRender("generation", true);
   }, [dimension, edition, isGenerating, seed]);
 
@@ -997,7 +1017,7 @@ export default function MapCanvas({
     }
 
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, "settled");
+    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
     scheduleRender("settled");
   }, [canvasSize]);
 
@@ -1011,7 +1031,7 @@ export default function MapCanvas({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     invalidateRenderTiles();
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, "settled");
+    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
     scheduleRender("settled");
   }, [
     settings.terrainEstimation,
@@ -1019,6 +1039,20 @@ export default function MapCanvas({
     settings.biomesAtElevation,
     biomeOverlay.highlightBiomes,
     biomeOverlayKey,
+  ]);
+
+  useEffect(() => {
+    if (!generatorRef.current) {
+      return;
+    }
+
+    const nextViewport = syncViewportState();
+    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
+    scheduleRender("settled");
+  }, [
+    settings.showGrid,
+    settings.binaryCoordinates,
+    settings.chunkCoordinates,
   ]);
 
   useEffect(() => {
@@ -1067,35 +1101,52 @@ export default function MapCanvas({
     }
   }
 
-  const displayViewport = viewport;
+  const displayViewport = viewportRef.current;
   const displayTileConfig = getTileConfig();
-  const canShowWorldOverlay = (worldX: number, worldZ: number) => (
+  const isWorldPositionRenderedInViewport = (viewportState: MapViewportState, worldX: number, worldZ: number) => (
     isWorldPositionReady(
-      displayViewport,
+      viewportState,
       displayTileConfig,
       worldX,
       worldZ,
       renderTileCacheRef.current
     )
   );
+  const isWorldPositionRendered = (worldX: number, worldZ: number) => (
+    isWorldPositionRenderedInViewport(displayViewport, worldX, worldZ)
+  );
+  const isWorldPositionRenderedInSnapshot = (worldX: number, worldZ: number) => {
+    const snapshotViewport = terrainSnapshotViewportRef.current;
+    if (!snapshotViewport) {
+      return false;
+    }
+
+    return isWorldPositionRenderedInViewport(snapshotViewport, worldX, worldZ);
+  };
+  const canShowOverlayAt = (screenX: number, screenY: number, worldX: number, worldZ: number) => (
+    isOverlayVisible(screenX, screenY, displayViewport)
+    && (
+      isWorldPositionRendered(worldX, worldZ)
+      || (isInteractionPreview && isWorldPositionRenderedInSnapshot(worldX, worldZ))
+    )
+  );
 
   const worldBounds = getWorldBounds(displayViewport);
   const pixelsPerBlock = getPixelsPerBlock(displayViewport);
   const spawnMarkerPosition = worldToScreen(displayViewport, 0, 0);
-  const allowOverworldMarkers = dimension === "overworld";
-  const visibleStructureMarkers = seed && allowOverworldMarkers && markerSettings.structuresEnabled
-    ? getVisibleStructureMarkers(seed, markerSettings.selectedStructures, worldBounds).slice(0, 18)
+  const allowOverworldOnlyMarkers = dimension === "overworld";
+  const visibleStructureMarkers = seed && markerSettings.structuresEnabled
+    ? getVisibleStructureMarkers(seed, dimension, markerSettings.selectedStructures, worldBounds).slice(0, 18)
     : [];
-  const visibleSlimeChunks = seed && allowOverworldMarkers && markerSettings.slimeChunks && pixelsPerBlock * 16 >= 10
+  const visibleSlimeChunks = seed && allowOverworldOnlyMarkers && markerSettings.slimeChunks && pixelsPerBlock * 16 >= 10
     ? getVisibleSlimeChunkRects(seed, worldBounds, displayViewport)
     : [];
   const overlayTargets: OverlayTarget[] = [];
 
   if (
-    allowOverworldMarkers
+    allowOverworldOnlyMarkers
     && markerSettings.spawnPoint
-    && isOverlayVisible(spawnMarkerPosition.x, spawnMarkerPosition.y, displayViewport)
-    && canShowWorldOverlay(0, 0)
+    && canShowOverlayAt(spawnMarkerPosition.x, spawnMarkerPosition.y, 0, 0)
   ) {
     overlayTargets.push({
       ...createOverlayCommand("spawn", "Spawn Point", 0, 0),
@@ -1108,7 +1159,7 @@ export default function MapCanvas({
 
   for (const marker of visibleStructureMarkers) {
     const position = worldToScreen(displayViewport, marker.x, marker.z);
-    if (!isOverlayVisible(position.x, position.y, displayViewport) || !canShowWorldOverlay(marker.x, marker.z)) {
+    if (!canShowOverlayAt(position.x, position.y, marker.x, marker.z)) {
       continue;
     }
 
@@ -1126,7 +1177,7 @@ export default function MapCanvas({
   if (biomeOverlay.highlightBiomes) {
     for (const label of visibleBiomeLabels) {
       const position = worldToScreen(displayViewport, label.worldX, label.worldZ);
-      if (!isOverlayVisible(position.x, position.y, displayViewport) || !canShowWorldOverlay(label.worldX, label.worldZ)) {
+      if (!canShowOverlayAt(position.x, position.y, label.worldX, label.worldZ)) {
         continue;
       }
 
@@ -1169,7 +1220,12 @@ export default function MapCanvas({
       {hasGenerator && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {visibleSlimeChunks.map((chunk) => (
-            canShowWorldOverlay(chunk.chunkX * 16 + 8, chunk.chunkZ * 16 + 8) ? (
+            canShowOverlayAt(
+              chunk.left + chunk.size / 2,
+              chunk.top + chunk.size / 2,
+              chunk.chunkX * 16 + 8,
+              chunk.chunkZ * 16 + 8
+            ) ? (
               <div
                 key={`${chunk.chunkX}:${chunk.chunkZ}`}
                 className="absolute border border-emerald-300/40 bg-emerald-400/10"
@@ -1197,10 +1253,7 @@ export default function MapCanvas({
 
           {selectedOverlay && (() => {
             const position = worldToScreen(displayViewport, selectedOverlay.worldX, selectedOverlay.worldZ);
-            if (
-              !isOverlayVisible(position.x, position.y, displayViewport)
-              || !canShowWorldOverlay(selectedOverlay.worldX, selectedOverlay.worldZ)
-            ) {
+            if (!canShowOverlayAt(position.x, position.y, selectedOverlay.worldX, selectedOverlay.worldZ)) {
               return null;
             }
 
