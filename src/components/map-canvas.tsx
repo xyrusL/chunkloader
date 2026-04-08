@@ -150,6 +150,8 @@ export default function MapCanvas({
   onGenerationComplete,
 }: MapCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gridCanvasRef = useRef<HTMLCanvasElement>(null);
+  const settingsRef = useRef(settings);
   const containerRef = useRef<HTMLDivElement>(null);
   const generatorRef = useRef<BiomeGenerator | null>(null);
   const offsetRef = useRef({ x: 0, y: 0 });
@@ -185,6 +187,8 @@ export default function MapCanvas({
   const [hoveredOverlayKey, setHoveredOverlayKey] = useState<string | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<HoverTooltipState | null>(null);
   const [isInteractionPreview, setIsInteractionPreview] = useState(false);
+
+  settingsRef.current = settings;
 
   useEffect(() => {
     lowEndDeviceRef.current = detectLowEndDevice();
@@ -365,6 +369,34 @@ export default function MapCanvas({
         );
       }
     }
+  }
+
+  function drawGridOverlay(viewportState: MapViewportState) {
+    const gridCanvas = gridCanvasRef.current;
+    if (!gridCanvas) {
+      return;
+    }
+
+    if (gridCanvas.width !== viewportState.canvasWidth || gridCanvas.height !== viewportState.canvasHeight) {
+      gridCanvas.width = viewportState.canvasWidth;
+      gridCanvas.height = viewportState.canvasHeight;
+    }
+
+    const context = gridCanvas.getContext("2d");
+    if (!context) {
+      return;
+    }
+
+    context.clearRect(0, 0, gridCanvas.width, gridCanvas.height);
+    context.imageSmoothingEnabled = false;
+
+    const currentSettings = settingsRef.current;
+    if (!generatorRef.current || !currentSettings.showGrid) {
+      return;
+    }
+
+    drawGrid(context, viewportState);
+    drawAxisLabels(context, viewportState, currentSettings);
   }
 
   function markTileUsed(tile: RenderTile) {
@@ -618,10 +650,7 @@ export default function MapCanvas({
     return labels;
   }
 
-  function drawCanvas(
-    viewportState: MapViewportState,
-    options?: { saveSnapshot?: boolean; drawGridHelpers?: boolean }
-  ) {
+  function drawCanvas(viewportState: MapViewportState, options?: { saveSnapshot?: boolean }) {
     const canvas = canvasRef.current;
     if (!canvas) {
       return;
@@ -646,15 +675,6 @@ export default function MapCanvas({
       saveTerrainSnapshot(viewportState, canvas);
     }
 
-    const shouldDrawGridHelpers = options?.drawGridHelpers ?? settings.showGrid;
-
-    if (shouldDrawGridHelpers) {
-      drawGrid(context, viewportState);
-    }
-
-    if (shouldDrawGridHelpers) {
-      drawAxisLabels(context, viewportState, settings);
-    }
   }
 
   function finalizeRenderRequest(token: number) {
@@ -670,7 +690,8 @@ export default function MapCanvas({
       }
     }
 
-    drawCanvas(request.viewport, { saveSnapshot: true, drawGridHelpers: settings.showGrid });
+    drawCanvas(request.viewport, { saveSnapshot: true });
+    drawGridOverlay(request.viewport);
     if (request.mode === "settled") {
       setVisibleBiomeLabels(collectVisibleBiomeLabels(request.viewport, request.sampleScale, getTileConfig()));
     }
@@ -720,7 +741,8 @@ export default function MapCanvas({
 
     const activeRequest = activeRenderRequestRef.current;
     if (activeRequest) {
-      drawCanvas(activeRequest.viewport, { drawGridHelpers: settings.showGrid });
+      drawCanvas(activeRequest.viewport);
+      drawGridOverlay(activeRequest.viewport);
       finalizeRenderRequest(activeRequest.token);
     }
 
@@ -777,7 +799,8 @@ export default function MapCanvas({
     };
 
     setIsRenderingMap(mode !== "interaction" && missingTiles > 0);
-    drawCanvas(viewportState, { drawGridHelpers: settings.showGrid });
+    drawCanvas(viewportState);
+    drawGridOverlay(viewportState);
 
     if (missingTiles === 0) {
       finalizeRenderRequest(activeRenderRequestRef.current.token);
@@ -913,7 +936,8 @@ export default function MapCanvas({
 
     setIsInteractionPreview(true);
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
+    drawCanvas(nextViewport);
+    drawGridOverlay(nextViewport);
     scheduleRender("interaction");
     queueSettledRender();
   }
@@ -965,7 +989,7 @@ export default function MapCanvas({
 
     const zoomFactor = Math.exp(-normalizedDelta * WHEEL_ZOOM_SENSITIVITY);
     const unclampedZoom = oldZoom * zoomFactor;
-    const newZoom = clampZoom(settings.snapZoom ? snapZoomLevel(unclampedZoom) : unclampedZoom);
+    const newZoom = clampZoom(settingsRef.current.snapZoom ? snapZoomLevel(unclampedZoom) : unclampedZoom);
     if (Math.abs(newZoom - oldZoom) < 0.0001) {
       return;
     }
@@ -984,7 +1008,8 @@ export default function MapCanvas({
     zoomRef.current = newZoom;
     setIsInteractionPreview(true);
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
+    drawCanvas(nextViewport);
+    drawGridOverlay(nextViewport);
     scheduleRender("interaction");
     queueSettledRender();
   }
@@ -1007,7 +1032,8 @@ export default function MapCanvas({
     setHoverTooltip(null);
     setHoveredOverlayKey(null);
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
+    drawCanvas(nextViewport);
+    drawGridOverlay(nextViewport);
     scheduleRender("generation", true);
   }, [dimension, edition, isGenerating, seed]);
 
@@ -1017,7 +1043,8 @@ export default function MapCanvas({
     }
 
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
+    drawCanvas(nextViewport);
+    drawGridOverlay(nextViewport);
     scheduleRender("settled");
   }, [canvasSize]);
 
@@ -1031,7 +1058,8 @@ export default function MapCanvas({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     invalidateRenderTiles();
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
+    drawCanvas(nextViewport);
+    drawGridOverlay(nextViewport);
     scheduleRender("settled");
   }, [
     settings.terrainEstimation,
@@ -1047,8 +1075,7 @@ export default function MapCanvas({
     }
 
     const nextViewport = syncViewportState();
-    drawCanvas(nextViewport, { drawGridHelpers: settings.showGrid });
-    scheduleRender("settled");
+    drawGridOverlay(nextViewport);
   }, [
     settings.showGrid,
     settings.binaryCoordinates,
@@ -1115,19 +1142,20 @@ export default function MapCanvas({
   const isWorldPositionRendered = (worldX: number, worldZ: number) => (
     isWorldPositionRenderedInViewport(displayViewport, worldX, worldZ)
   );
-  const isWorldPositionRenderedInSnapshot = (worldX: number, worldZ: number) => {
+  const isWorldPositionCoveredBySnapshot = (worldX: number, worldZ: number) => {
     const snapshotViewport = terrainSnapshotViewportRef.current;
     if (!snapshotViewport) {
       return false;
     }
 
-    return isWorldPositionRenderedInViewport(snapshotViewport, worldX, worldZ);
+    const bounds = getWorldBounds(snapshotViewport);
+    return worldX >= bounds.minX && worldX <= bounds.maxX && worldZ >= bounds.minZ && worldZ <= bounds.maxZ;
   };
   const canShowOverlayAt = (screenX: number, screenY: number, worldX: number, worldZ: number) => (
     isOverlayVisible(screenX, screenY, displayViewport)
     && (
       isWorldPositionRendered(worldX, worldZ)
-      || (isInteractionPreview && isWorldPositionRenderedInSnapshot(worldX, worldZ))
+      || (isInteractionPreview && isWorldPositionCoveredBySnapshot(worldX, worldZ))
     )
   );
 
@@ -1210,12 +1238,18 @@ export default function MapCanvas({
           event.preventDefault();
         }
       }}
-      style={{
+    style={{
         cursor: hasGenerator ? (hoveredOverlayKey ? "pointer" : "grab") : "default",
         overscrollBehavior: "contain",
       }}
     >
       <canvas ref={canvasRef} width={canvasSize.w} height={canvasSize.h} className="block h-full w-full" />
+      <canvas
+        ref={gridCanvasRef}
+        width={canvasSize.w}
+        height={canvasSize.h}
+        className="pointer-events-none absolute inset-0 block h-full w-full"
+      />
 
       {hasGenerator && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
