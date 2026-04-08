@@ -7,8 +7,7 @@ import {
   CompassRoseIcon,
   LeafIcon,
   MapIcon,
-  StructureIcon,
-  VillagerHeadIcon,
+  StructureMarkerTexture,
 } from "@/components/ui/icons";
 import { BiomeGenerator, type TerrainSample } from "@/lib/biome-generator";
 import { Biome, BIOME_COLORS, BIOME_PALETTE, BIOME_VALUES } from "@/lib/biome-colors";
@@ -1196,9 +1195,7 @@ export default function MapCanvas({
       x: position.x,
       y: position.y,
       accent: "border-amber-400/35 bg-[#201814]/90 text-amber-50",
-      icon: marker.structure.id === "village"
-        ? <VillagerHeadIcon className="h-4 w-4 text-[#d8b07b]" />
-        : <StructureIcon name={marker.structure.icon} className="h-4 w-4 text-amber-200" />,
+      icon: <StructureMarkerTexture name={marker.structure.icon} className="h-4 w-4" />,
     });
   }
 

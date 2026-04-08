@@ -2,7 +2,7 @@
 
 import { getStructureTypesForDimension } from "@/lib/biome-data";
 import type { MarkerSettingsState } from "@/lib/map-overlays";
-import { CheckSquareIcon, SquareIcon, StructureIcon, WarningIcon } from "@/components/ui/icons";
+import { CheckSquareIcon, SquareIcon, StructureMarkerTexture, WarningIcon } from "@/components/ui/icons";
 import type { Dimension } from "@/lib/minecraft-versions";
 
 interface MarkersPanelProps {
@@ -108,7 +108,7 @@ export default function MarkersPanel({
                     }`}
                   >
                     <span className="flex h-5 w-5 items-center justify-center rounded-sm bg-black/20 ring-1 ring-white/5">
-                      <StructureIcon name={structure.icon} className="h-[18px] w-[18px]" />
+                      <StructureMarkerTexture name={structure.icon} />
                     </span>
                     <span className="truncate">{structure.name}</span>
                   </button>

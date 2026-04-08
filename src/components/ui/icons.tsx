@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactElement, SVGProps } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -128,6 +129,31 @@ export type StructureIconName =
   | "nether_fossil"
   | "end_city";
 
+const STRUCTURE_TEXTURES: Record<StructureIconName, { src: string; alt: string }> = {
+  village: { src: "/vendor/mcicons/icons/minecraft_bell.png", alt: "Village marker icon" },
+  ocean_monument: { src: "/vendor/mcicons/icons/minecraft_prismarine.png", alt: "Ocean Monument marker icon" },
+  shipwreck: { src: "/vendor/mcicons/icons/minecraft_oak_boat.png", alt: "Shipwreck marker icon" },
+  mineshaft: { src: "/vendor/mcicons/icons/minecraft_minecart.png", alt: "Mineshaft marker icon" },
+  ancient_city: { src: "/vendor/mcicons/icons/minecraft_sculk_shrieker.png", alt: "Ancient City marker icon" },
+  amethyst_geode: { src: "/vendor/mcicons/icons/minecraft_amethyst_cluster.png", alt: "Amethyst Geode marker icon" },
+  woodland_mansion: { src: "/vendor/mcicons/icons/minecraft_dark_oak_door.png", alt: "Woodland Mansion marker icon" },
+  desert_pyramid: { src: "/vendor/mcicons/icons/minecraft_chiseled_sandstone.png", alt: "Desert Pyramid marker icon" },
+  jungle_temple: { src: "/vendor/mcicons/icons/minecraft_mossy_cobblestone.png", alt: "Jungle Temple marker icon" },
+  igloo: { src: "/vendor/mcicons/icons/minecraft_snow_block.png", alt: "Igloo marker icon" },
+  pillager_outpost: { src: "/vendor/mcicons/icons/minecraft_pillager_spawn_egg.png", alt: "Pillager Outpost marker icon" },
+  ruined_portal: { src: "/vendor/mcicons/icons/minecraft_crying_obsidian.png", alt: "Ruined Portal marker icon" },
+  buried_treasure: { src: "/vendor/mcicons/icons/minecraft_chest.png", alt: "Buried Treasure marker icon" },
+  swamp_hut: { src: "/vendor/mcicons/icons/minecraft_cauldron.png", alt: "Swamp Hut marker icon" },
+  stronghold: { src: "/vendor/mcicons/icons/minecraft_end_portal_frame.png", alt: "Stronghold marker icon" },
+  ocean_ruin: { src: "/vendor/mcicons/icons/minecraft_nautilus_shell.png", alt: "Ocean Ruin marker icon" },
+  trail_ruin: { src: "/vendor/mcicons/icons/minecraft_brush.png", alt: "Trail Ruin marker icon" },
+  trial_chambers: { src: "/vendor/mcicons/icons/minecraft_trial_spawner.png", alt: "Trial Chambers marker icon" },
+  nether_fortress: { src: "/vendor/mcicons/icons/minecraft_nether_bricks.png", alt: "Nether Fortress marker icon" },
+  bastion_remnant: { src: "/vendor/mcicons/icons/minecraft_gilded_blackstone.png", alt: "Bastion Remnant marker icon" },
+  nether_fossil: { src: "/vendor/mcicons/icons/minecraft_bone_block.png", alt: "Nether Fossil marker icon" },
+  end_city: { src: "/vendor/mcicons/icons/minecraft_purpur_block.png", alt: "End City marker icon" },
+};
+
 function structureIcon(Icon: LucideIcon, className: string) {
   return <Icon aria-hidden="true" className={className} strokeWidth={1.8} />;
 }
@@ -159,4 +185,19 @@ export function StructureIcon({ name, className = "h-4 w-4" }: { name: Structure
   };
 
   return icons[name];
+}
+
+export function StructureMarkerTexture({ name, className = "h-[18px] w-[18px]" }: { name: StructureIconName; className?: string }) {
+  const texture = STRUCTURE_TEXTURES[name];
+
+  return (
+    <Image
+      src={texture.src}
+      alt=""
+      aria-hidden="true"
+      width={18}
+      height={18}
+      className={`${className} object-contain [image-rendering:pixelated]`}
+    />
+  );
 }
