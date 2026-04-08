@@ -12,6 +12,7 @@ import {
   LeafIcon,
   MapIcon,
   PinIcon,
+  PlusIcon,
   SearchIcon,
   SeedIcon,
 } from "@/components/ui/icons";
@@ -535,14 +536,7 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
                   <summary className="faq-summary flex list-none items-center justify-between gap-4 px-5 py-4 text-sm font-semibold text-white hover:text-[var(--theme-accent)] sm:px-6 sm:py-5 sm:text-base">
                     {faq.question}
                     <span className="faq-icon flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-[var(--theme-accent)] sm:h-8 sm:w-8">
-                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-                        <path
-                          d="M7 1v12M1 7h12"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
+                      <PlusIcon />
                     </span>
                   </summary>
                   <div className="faq-body">
@@ -556,7 +550,7 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
           </div>
         </section>
 
-        <section className="pb-8 pt-6">
+        <section className="pb-10 pt-6">
           <div className="reveal relative overflow-hidden rounded-[2.4rem] border border-white/10 bg-[linear-gradient(135deg,rgba(9,20,30,0.96),rgba(14,33,50,0.9)_48%,rgba(12,17,35,0.96))] px-5 py-8 shadow-[0_30px_80px_rgba(0,0,0,0.42)] transition-shadow duration-500 hover:shadow-[0_40px_100px_rgba(0,0,0,0.56)] sm:px-8 sm:py-12">
             <div className="pointer-events-none absolute -right-12 top-[-4rem] h-44 w-44 rounded-full bg-emerald-400/10 blur-3xl" />
             <div className="pointer-events-none absolute bottom-[-5rem] left-[28%] h-52 w-52 rounded-full bg-sky-500/10 blur-3xl" />
@@ -583,39 +577,16 @@ export default function LandingScreen({ cta }: LandingScreenProps) {
               </div>
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
                 <div className="cta-btn-wrap inline-flex">{cta}</div>
-                <div className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-5 py-3.5 text-sm text-[var(--theme-text-muted)] transition-colors duration-200 hover:border-white/20">
-                  Shareable maps. Version-aware seed tools. Browser only.
-                </div>
+                <Link
+                  href="/how-it-works"
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3.5 text-sm font-medium text-white transition-colors duration-200 hover:border-[var(--theme-border-strong)] hover:bg-white/[0.08]"
+                >
+                  How It Works
+                </Link>
               </div>
             </div>
           </div>
         </section>
-
-        <footer className="pb-10 pt-2">
-          <div className="reveal flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.015))] px-5 py-5 shadow-[var(--theme-shadow-panel)] backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div>
-              <p className="text-[0.68rem] uppercase tracking-[0.24em] text-[var(--theme-accent)]">Learn More</p>
-              <p className="mt-2 text-sm leading-7 text-[var(--theme-text-secondary)] sm:text-base">
-                Want the simple version of the engine? Read how the map works, what the math is doing,
-                and what kind of accuracy you should expect.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/how-it-works"
-                className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-3 text-sm font-medium text-white transition-colors duration-200 hover:border-[var(--theme-border-strong)] hover:bg-white/[0.08]"
-              >
-                How It Works
-              </Link>
-              <Link
-                href="/explore"
-                className="inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--theme-accent-strong),var(--theme-accent))] px-5 py-3 text-sm font-semibold text-[#04110b] shadow-[var(--theme-shadow-accent)] transition-transform hover:scale-[1.01]"
-              >
-                Start Exploring
-              </Link>
-            </div>
-          </div>
-        </footer>
       </div>
     </main>
   );

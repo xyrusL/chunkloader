@@ -1,11 +1,23 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import type { IconType } from "react-icons";
+import {
+  FaFacebookF,
+  FaLinkedinIn,
+  FaPinterestP,
+  FaRedditAlien,
+  FaTelegram,
+  FaTumblr,
+  FaWhatsapp,
+  FaXTwitter,
+} from "react-icons/fa6";
 import {
   AppLogoIcon,
+  CollapseIcon,
   CopyLinkIcon,
+  ExpandIcon,
   ShareIcon,
   SettingsIcon,
 } from "@/components/ui/icons";
@@ -25,7 +37,7 @@ interface ShareTarget {
   id: string;
   label: string;
   href: string;
-  iconSrc: string;
+  icon: IconType;
 }
 
 export default function TopBar({
@@ -48,14 +60,14 @@ export default function TopBar({
   const encodedUrl = encodeURIComponent(shareUrl);
   const encodedText = encodeURIComponent(shareText);
   const shareTargets: ShareTarget[] = [
-    { id: "x", label: "X", href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`, iconSrc: "/social/x.svg" },
-    { id: "reddit", label: "Reddit", href: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`, iconSrc: "/social/reddit.svg" },
-    { id: "facebook", label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, iconSrc: "/social/facebook.svg" },
-    { id: "linkedin", label: "LinkedIn", href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`, iconSrc: "/social/linkedin.svg" },
-    { id: "whatsapp", label: "WhatsApp", href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, iconSrc: "/social/whatsapp.svg" },
-    { id: "telegram", label: "Telegram", href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`, iconSrc: "/social/telegram.svg" },
-    { id: "tumblr", label: "Tumblr", href: `https://www.tumblr.com/widgets/share/tool?canonicalUrl=${encodedUrl}&caption=${encodedText}`, iconSrc: "/social/tumblr.svg" },
-    { id: "pinterest", label: "Pinterest", href: `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedText}`, iconSrc: "/social/pinterest.svg" },
+    { id: "x", label: "X", href: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedText}`, icon: FaXTwitter },
+    { id: "reddit", label: "Reddit", href: `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedText}`, icon: FaRedditAlien },
+    { id: "facebook", label: "Facebook", href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, icon: FaFacebookF },
+    { id: "linkedin", label: "LinkedIn", href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`, icon: FaLinkedinIn },
+    { id: "whatsapp", label: "WhatsApp", href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${shareUrl}`)}`, icon: FaWhatsapp },
+    { id: "telegram", label: "Telegram", href: `https://t.me/share/url?url=${encodedUrl}&text=${encodedText}`, icon: FaTelegram },
+    { id: "tumblr", label: "Tumblr", href: `https://www.tumblr.com/widgets/share/tool?canonicalUrl=${encodedUrl}&caption=${encodedText}`, icon: FaTumblr },
+    { id: "pinterest", label: "Pinterest", href: `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedText}`, icon: FaPinterestP },
   ];
 
   useEffect(() => {
@@ -155,6 +167,7 @@ export default function TopBar({
 
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {shareTargets.map((target) => {
+                  const Icon = target.icon;
                   return (
                     <a
                       key={target.id}
@@ -165,7 +178,7 @@ export default function TopBar({
                       onClick={() => setShareOpen(false)}
                     >
                       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--theme-surface-soft)] text-[var(--theme-accent)]">
-                        <Image src={target.iconSrc} alt="" width={16} height={16} className="h-4 w-4" />
+                        <Icon className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <span>{target.label}</span>
                     </a>
@@ -203,13 +216,7 @@ export default function TopBar({
           title={isMapExpanded ? "Exit expanded map" : "Expand map"}
           onClick={onToggleMapExpanded}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            {isMapExpanded ? (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 15H4m0 0v5m0-5l6 6m5-6h5m0 0v5m0-5l-6 6M9 9H4m0 0V4m0 5l6-6m5 6h5m0 0V4m0 5l-6-6" />
-            ) : (
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            )}
-          </svg>
+          {isMapExpanded ? <CollapseIcon /> : <ExpandIcon />}
         </button>
       </div>
     </header>
