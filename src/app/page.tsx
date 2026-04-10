@@ -3,6 +3,7 @@ import Link from "next/link";
 import LandingScreen from "@/components/landing-screen";
 import { FAQS } from "@/lib/faqs";
 import { createPageMetadata } from "@/lib/page-metadata";
+import { stringifyJsonForHtml } from "@/lib/safe-json";
 import { getSiteUrl, SITE_NAME } from "@/lib/site-config";
 
 export const metadata: Metadata = createPageMetadata({
@@ -65,15 +66,15 @@ export default function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: stringifyJsonForHtml(websiteJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: stringifyJsonForHtml(softwareJsonLd) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: stringifyJsonForHtml(faqJsonLd) }}
       />
       <LandingScreen
         cta={

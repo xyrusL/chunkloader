@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getVersionsForEdition } from "@/lib/minecraft-versions";
+import { MAX_SEED_LENGTH, normalizeSeedValue } from "@/lib/seed-input";
 import type { Edition, MinecraftVersion } from "@/lib/minecraft-versions";
 import { CoffeeIcon, DiceIcon, LayersIcon, MapIcon, SpinnerIcon } from "@/components/ui/icons";
 
@@ -52,11 +53,13 @@ export default function SeedInputPanel({
   };
 
   const handleGenerate = () => {
-    if (!seed.trim()) {
+    const normalizedSeed = normalizeSeedValue(seed);
+    if (!normalizedSeed) {
       handleRandom();
       return;
     }
-    onGenerate(seed, selectedVersion, edition);
+    setSeed(normalizedSeed);
+    onGenerate(normalizedSeed, selectedVersion, edition);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -116,9 +119,10 @@ export default function SeedInputPanel({
             <input
               type="text"
               value={seed}
-              onChange={(e) => setSeed(e.target.value)}
+              onChange={(e) => setSeed(e.target.value.slice(0, MAX_SEED_LENGTH))}
               onKeyDown={handleKeyDown}
               placeholder="Enter seed (number or text)..."
+              maxLength={MAX_SEED_LENGTH}
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-sm text-white 
                          placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 
                          focus:border-emerald-500/50 font-mono"

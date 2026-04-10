@@ -18,6 +18,7 @@ import { Biome } from "@/lib/biome-colors";
 import { STRUCTURE_TYPES } from "@/lib/biome-data";
 import { createDefaultBiomeOverlayState, createDefaultMarkerSettings } from "@/lib/map-overlays";
 import { getVersionsForEdition } from "@/lib/minecraft-versions";
+import { normalizeSeedValue } from "@/lib/seed-input";
 import type { Dimension, Edition, MinecraftVersion } from "@/lib/minecraft-versions";
 
 const STORAGE_KEYS = {
@@ -32,6 +33,7 @@ const VALID_TABS = new Set(["seed", "settings", "finder", "markers", "biomes"]);
 const VALID_DIMENSIONS = new Set<Dimension>(["overworld", "nether", "end"]);
 const VALID_BIOMES = new Set(Object.values(Biome));
 const VALID_STRUCTURES = new Set(STRUCTURE_TYPES.map((structure) => structure.id));
+const MAX_STORED_JSON_LENGTH = 10_000;
 
 interface ExploreState {
   seed: string;
@@ -82,7 +84,8 @@ export default function ExploreApp() {
   } = state;
 
   const handleGenerate = (newSeed: string, newVersion: MinecraftVersion, newEdition: Edition) => {
-    dispatch({ type: "generate", seed: newSeed, version: newVersion, edition: newEdition });
+    const normalizedSeed = normalizeSeedValue(newSeed);
+    dispatch({ type: "generate", seed: normalizedSeed, version: newVersion, edition: newEdition });
   };
 
   const handleBiomeHover = useCallback((biome: string, x: number, z: number) => {
@@ -458,38 +461,21 @@ function loadExploreStateFromBrowser(): ExploreState {
 
   const storedMapSettings = parseStoredJson<Partial<MapSettingsState>>(window.localStorage.getItem(STORAGE_KEYS.mapSettings));
   if (storedMapSettings) {
-    nextState.mapSettings = {
-      ...nextState.mapSettings,
-      ...storedMapSettings,
-    };
+    nextState.mapSettings = sanitizeMapSettings(storedMapSettings, nextState.mapSettings);
   }
 
   const storedMarkerSettings = parseStoredJson<Partial<StoredMarkerSettings>>(window.localStorage.getItem(STORAGE_KEYS.markerSettings));
   if (storedMarkerSettings) {
-    nextState.markerSettings = {
-      spawnPoint: typeof storedMarkerSettings.spawnPoint === "boolean" ? storedMarkerSettings.spawnPoint : nextState.markerSettings.spawnPoint,
-      slimeChunks: typeof storedMarkerSettings.slimeChunks === "boolean" ? storedMarkerSettings.slimeChunks : nextState.markerSettings.slimeChunks,
-      structuresEnabled: typeof storedMarkerSettings.structuresEnabled === "boolean" ? storedMarkerSettings.structuresEnabled : nextState.markerSettings.structuresEnabled,
-      selectedStructures: storedMarkerSettings.selectedStructures
-        ? new Set(storedMarkerSettings.selectedStructures.filter((structureId) => VALID_STRUCTURES.has(structureId)))
-        : nextState.markerSettings.selectedStructures,
-    };
+    nextState.markerSettings = sanitizeMarkerSettings(storedMarkerSettings, nextState.markerSettings);
   }
 
   const storedBiomeOverlay = parseStoredJson<Partial<StoredBiomeOverlay>>(window.localStorage.getItem(STORAGE_KEYS.biomeOverlay));
   if (storedBiomeOverlay) {
-    nextState.biomeOverlay = {
-      highlightBiomes: typeof storedBiomeOverlay.highlightBiomes === "boolean"
-        ? storedBiomeOverlay.highlightBiomes
-        : nextState.biomeOverlay.highlightBiomes,
-      selectedBiomes: storedBiomeOverlay.selectedBiomes
-        ? new Set(storedBiomeOverlay.selectedBiomes.filter((biome) => VALID_BIOMES.has(biome)))
-        : nextState.biomeOverlay.selectedBiomes,
-    };
+    nextState.biomeOverlay = sanitizeBiomeOverlay(storedBiomeOverlay, nextState.biomeOverlay);
   }
 
   const urlParams = new URLSearchParams(window.location.search);
-  const urlSeed = urlParams.get("seed")?.trim() ?? "";
+  const urlSeed = normalizeSeedValue(urlParams.get("seed"));
   if (urlSeed) {
     const urlEditionParam = urlParams.get("edition");
     const urlVersionParam = urlParams.get("version");
@@ -511,15 +497,67 @@ function loadExploreStateFromBrowser(): ExploreState {
 }
 
 function parseStoredJson<T>(value: string | null): T | null {
-  if (!value) {
+  if (!value || value.length > MAX_STORED_JSON_LENGTH) {
     return null;
   }
 
   try {
-    return JSON.parse(value) as T;
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? (parsed as T) : null;
   } catch {
     return null;
   }
+}
+
+function sanitizeMapSettings(
+  value: Partial<MapSettingsState>,
+  fallback: MapSettingsState
+): MapSettingsState {
+  return {
+    terrainEstimation: typeof value.terrainEstimation === "boolean" ? value.terrainEstimation : fallback.terrainEstimation,
+    contourLines: typeof value.contourLines === "boolean" ? value.contourLines : fallback.contourLines,
+    biomesAtElevation: typeof value.biomesAtElevation === "boolean" ? value.biomesAtElevation : fallback.biomesAtElevation,
+    showGrid: typeof value.showGrid === "boolean" ? value.showGrid : fallback.showGrid,
+    binaryCoordinates: typeof value.binaryCoordinates === "boolean" ? value.binaryCoordinates : fallback.binaryCoordinates,
+    chunkCoordinates: typeof value.chunkCoordinates === "boolean" ? value.chunkCoordinates : fallback.chunkCoordinates,
+    snapZoom: typeof value.snapZoom === "boolean" ? value.snapZoom : fallback.snapZoom,
+    floatingTooltip: typeof value.floatingTooltip === "boolean" ? value.floatingTooltip : fallback.floatingTooltip,
+  };
+}
+
+function sanitizeMarkerSettings(
+  value: Partial<StoredMarkerSettings>,
+  fallback: ExploreState["markerSettings"]
+): ExploreState["markerSettings"] {
+  return {
+    spawnPoint: typeof value.spawnPoint === "boolean" ? value.spawnPoint : fallback.spawnPoint,
+    slimeChunks: typeof value.slimeChunks === "boolean" ? value.slimeChunks : fallback.slimeChunks,
+    structuresEnabled: typeof value.structuresEnabled === "boolean" ? value.structuresEnabled : fallback.structuresEnabled,
+    selectedStructures: Array.isArray(value.selectedStructures)
+      ? new Set(
+          value.selectedStructures
+            .filter((structureId): structureId is string => typeof structureId === "string" && VALID_STRUCTURES.has(structureId))
+        )
+      : fallback.selectedStructures,
+  };
+}
+
+function sanitizeBiomeOverlay(
+  value: Partial<StoredBiomeOverlay>,
+  fallback: ExploreState["biomeOverlay"]
+): ExploreState["biomeOverlay"] {
+  return {
+    highlightBiomes: typeof value.highlightBiomes === "boolean"
+      ? value.highlightBiomes
+      : fallback.highlightBiomes,
+    selectedBiomes: Array.isArray(value.selectedBiomes)
+      ? new Set(value.selectedBiomes.filter((biome): biome is Biome => typeof biome === "string" && VALID_BIOMES.has(biome as Biome)))
+      : fallback.selectedBiomes,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function resolveUpdater<T>(updater: ExploreStateUpdater<T>, current: T): T {

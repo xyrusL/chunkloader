@@ -10,18 +10,59 @@ function getRequestHost(request: NextRequest): string {
     .toLowerCase();
 }
 
+function createNonce() {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function createContentSecurityPolicy(nonce: string) {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    "manifest-src 'self'",
+    "worker-src 'self' blob:",
+  ].join("; ");
+}
+
+function applySecurityHeaders(response: NextResponse, nonce: string) {
+  response.headers.set("Content-Security-Policy", createContentSecurityPolicy(nonce));
+  response.headers.set("Permissions-Policy", "camera=(), geolocation=(), microphone=(), payment=(), usb=()");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+}
+
 export function proxy(request: NextRequest) {
   const host = getRequestHost(request);
+  const nonce = createNonce();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
 
   if (!LEGACY_HOSTS.has(host)) {
-    return NextResponse.next();
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    applySecurityHeaders(response, nonce);
+    return response;
   }
 
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.protocol = "https";
   redirectUrl.host = SITE_DOMAIN;
 
-  return NextResponse.redirect(redirectUrl, 308);
+  const response = NextResponse.redirect(redirectUrl, 308);
+  applySecurityHeaders(response, nonce);
+  return response;
 }
 
 export const config = {
