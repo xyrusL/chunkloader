@@ -30,6 +30,13 @@ function useScrollReveal() {
     if (!el) return;
 
     const targets = el.querySelectorAll<HTMLElement>(".reveal");
+    el.classList.add("reveal-ready");
+
+    if (!("IntersectionObserver" in window)) {
+      targets.forEach((target) => target.classList.add("is-visible"));
+      return () => el.classList.remove("reveal-ready");
+    }
+
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -44,7 +51,10 @@ function useScrollReveal() {
 
     targets.forEach((target) => io.observe(target));
 
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      el.classList.remove("reveal-ready");
+    };
   }, []);
 
   return ref;
